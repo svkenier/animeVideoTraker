@@ -1,0 +1,40 @@
+# Compilaciones y distribución
+build/
+dist/
+*.spec
+
+# Ejecutables compilados (se distribuyen via Releases, no en el repo)
+*.exe
+
+# Entornos virtuales
+.venv/
+venv/
+env/
+
+# Caché de Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+# Configuración local generada por la app
+config.json
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Archivos temporales
+*.tmp
+*.bak
