@@ -1510,14 +1510,21 @@ class VideoTrackerApp:
         self._fm_frame = tk.Frame(self.root, bg=C["bg_main"])
         self._fm_frame.pack(fill="both", expand=True)
         
-        # Title
+        # Title and Top Bar
         hdr = tk.Frame(self._fm_frame, bg=C["bg_header"])
         hdr.pack(fill="x")
-        tk.Label(hdr, text="Gestor de Carpetas / Series", font=("Segoe UI", 16, "bold"), bg=C["bg_header"], fg=C["fg_title"]).pack(pady=15)
         
-        # Add button
-        btn_add = tk.Label(self._fm_frame, text=" + Añadir nueva carpeta...", bg=C["bg_btn"], fg=C["fg_normal"], font=("Segoe UI", 10, "bold"), cursor="hand2", pady=8)
-        btn_add.pack(fill="x", padx=40, pady=10)
+        btn_back = tk.Label(hdr, text=" \u2b05 Volver ", bg=C["bg_btn"], fg=C["fg_btn"], font=("Segoe UI", 10, "bold"), cursor="hand2", padx=10, pady=5)
+        btn_back.pack(side="left", padx=20, pady=10)
+        btn_back.bind("<Button-1>", lambda e: self._toggle_folder_manager())
+        btn_back.bind("<Enter>", lambda e: e.widget.configure(bg=C["bg_btn_hover"]))
+        btn_back.bind("<Leave>", lambda e: e.widget.configure(bg=C["bg_btn"]))
+        
+        tk.Label(hdr, text="Gestor de Trackers / Series", font=("Segoe UI", 14, "bold"), bg=C["bg_header"], fg=C["fg_title"]).pack(side="left", pady=15, padx=10)
+        
+        # Add button (Prominent)
+        btn_add = tk.Label(self._fm_frame, text=" + Añadir nueva carpeta... ", bg=C["border_active"], fg="#ffffff", font=("Segoe UI", 10, "bold"), cursor="hand2", pady=8)
+        btn_add.pack(fill="x", padx=40, pady=15)
         
         def add_new():
             ruta = filedialog.askdirectory(title="Seleccionar Carpeta de Anime")
