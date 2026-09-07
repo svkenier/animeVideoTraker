@@ -27,7 +27,7 @@ ARCHIVO_REGISTRO = ".tracker.json"
 ARCHIVO_SETTINGS = "tracker_settings.json"
 FUENTES          = [
     "Consolas", "Courier New", "JetBrains Mono", "Comic Sans MS", 
-    "Segoe UI", "Calibri", "Verdana", "Arial", "Tahoma", "Trebuchet MS"
+    "Segoe UI", "Calibri", "Verdana", "Arial", "Tahoma", "Trebuchet MS", "Monospace"
 ]
 
 GENERIC_READ                      = 0x80000000
@@ -889,9 +889,19 @@ class VentanaConfiguracion(tk.Toplevel):
         ff = tk.Frame(body, bg=bg); ff.pack(fill="x", padx=20, pady=6)
         tk.Label(ff, text="Fuente:", font=("Segoe UI", 9),
                  bg=bg, fg=C["fg_normal"], width=12, anchor="w").grid(row=0, column=0)
-        ttk.Combobox(ff, textvariable=self._fuente_v,
-                     values=FUENTES, state="readonly", width=22
-                     ).grid(row=0, column=1, sticky="w")
+        # Previsualizacion de fuentes (OptionMenu en lugar de ttk.Combobox para soportar fuente individual por opcion)
+        opt = tk.OptionMenu(ff, self._fuente_v, *FUENTES)
+        opt.config(width=20, bg=C["bg_btn"], fg=C["fg_normal"], activebackground=C["bg_btn_hover"], 
+                   activeforeground=C["fg_normal"], relief="flat", highlightthickness=1, 
+                   highlightbackground=C["border"], highlightcolor=C["border_active"], font=("Segoe UI", 9))
+        
+        # Modificar el menu desplegable para que cada fuente use su propia tipografia
+        menu = opt["menu"]
+        menu.config(bg=C["bg_btn"], fg=C["fg_normal"], activebackground=C["bg_btn_hover"])
+        for i, font_name in enumerate(FUENTES):
+            menu.entryconfig(i, font=(font_name, 11))
+            
+        opt.grid(row=0, column=1, sticky="w")
         tk.Label(ff, text="Tamano:", font=("Segoe UI", 9),
                  bg=bg, fg=C["fg_normal"], width=12, anchor="w").grid(row=1, column=0, pady=6)
         tk.Spinbox(ff, textvariable=self._tamano_v, from_=10, to=28,
