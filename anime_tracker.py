@@ -1019,6 +1019,19 @@ class VentanaConfiguracion(tk.Toplevel):
         self._reload_swatches(nuevo)
         self._apply()
 
+    def _save(self):
+        self._st.tema = self._tema_v.get()
+        self._st.fuente_familia = self._fuente_v.get()
+        self._st.fuente_tamano = self._tamano_v.get()
+        for t in ["oscuro", "claro"]:
+            for k, v in self._pending[t].items():
+                self._st.data[f"colores_{t}"][k] = v
+        self._st.apply_theme()
+        self._st.save()
+        if self._apply:
+            self._apply()
+        self.destroy()
+
     def _reset(self):
         """Reset custom colors for the CURRENT selected theme and font defaults."""
         tema = self._tema_v.get()
@@ -1626,7 +1639,7 @@ class VideoTrackerApp:
         bf.pack(side="right")
         self._bf = bf
 
-        b1 = self._mkbtn(bf, "  Series  ",   self._toggle_folder_manager)
+        b1 = self._mkbtn(bf, "  Trackers  ",   self._toggle_folder_manager)
         b2 = self._mkbtn(bf, "  Refrescar  ", self._on_refresh)
         b3 = self._mkbtn(bf, "\u2699 Config", self._open_config)
 
