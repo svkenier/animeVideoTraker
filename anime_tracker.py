@@ -426,7 +426,6 @@ class Settings:
         self.data.setdefault("colores_claro", {})
         
         # Filter out invalid or residual paths (cwd, exe path, non-existent)
-        import sys, os
         cwd = os.getcwd().lower()
         exe_path = os.path.dirname(os.path.abspath(sys.argv[0])).lower()
         if getattr(sys, "frozen", False):
