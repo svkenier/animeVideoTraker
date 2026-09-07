@@ -1681,11 +1681,27 @@ class VideoTrackerApp:
         return ""
 
     def _save_progress(self, name):
+        """Persiste el \u00faltimo cap\u00edtulo visto en disco de forma robusta.
+        Lee el JSON existente, actualiza solo la clave 'ultimo_visto',
+        y fuerza el vaciado al disco con fsync.
+        """
         ruta = os.path.join(self.directorio, ARCHIVO_REGISTRO)
         try:
+            # Leer datos existentes para no perder otras claves futuras
+            data = {}
+            if os.path.exists(ruta):
+                try:
+                    with open(ruta, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                except Exception:
+                    data = {}
+            data["ultimo_visto"] = name
+            # Escribir con vaciado forzado al disco
             with open(ruta, "w", encoding="utf-8") as f:
-                json.dump({"ultimo_visto": name}, f, ensure_ascii=False, indent=2)
-            import ctypes
+                json.dump(data, f, ensure_ascii=False, indent=2)
+                f.flush()
+                os.fsync(f.fileno())  # garantiza escritura f\u00edsica antes de salir
+            # Marcar como oculto en Windows (no afecta la lectura)
             ctypes.windll.kernel32.SetFileAttributesW(str(ruta), 2)
         except Exception:
             pass
@@ -1788,11 +1804,35 @@ class VideoTrackerApp:
             self.lbl_sync.config(fg="#555555", text="⬤ Sync")
 
     def _on_close(self):
-        """Cierre limpio: para el watcher antes de destruir la ventana."""
+        """Cierre limpio: vaciar la cola de sync, guardar progreso y parar el watcher.
+        
+        IMPORTANT: Debemos drenar la cola y guardar ANTES de destroy(),
+        porque destroy() cancela todos los root.after() pendientes y el
+        \u00faltimo episodio detectado se perder\u00eda sin este flush.
+        """
+        # 1. Drenar la cola del watcher para capturar el \u00faltimo episodio detectado
+        try:
+            ultimo_detectado = None
+            while True:
+                ultimo_detectado = self._sync_queue.get_nowait()
+        except queue.Empty:
+            pass
+
+        # 2. Si hay un episodio nuevo detectado que a\u00fan no se guard\u00f3, guardarlo ahora
+        if ultimo_detectado and ultimo_detectado != self.ultimo_visto:
+            self.ultimo_visto = ultimo_detectado
+            self._save_progress(ultimo_detectado)
+        elif self.ultimo_visto:
+            # Guardar el estado actual por si el fsync anterior no se ejecut\u00f3
+            self._save_progress(self.ultimo_visto)
+
+        # 3. Parar el hilo daemon
         try:
             self._watcher.stop()
         except Exception:
             pass
+
+        # 4. Destruir la ventana
         self.root.destroy()
 
     # ── Actions ───────────────────────────────────────────────────────────────
