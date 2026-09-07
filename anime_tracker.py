@@ -399,13 +399,7 @@ class Settings:
 
     def __init__(self, directory):
         import os
-        appdata = os.getenv('APPDATA')
-        if appdata:
-            config_dir = os.path.join(appdata, 'AnimeTracker')
-        else:
-            # Fallback in case APPDATA is somehow not available
-            config_dir = os.path.join(os.path.expanduser('~'), '.animetracker')
-            
+        config_dir = os.path.join(os.environ['APPDATA'], 'AnimeTracker')
         os.makedirs(config_dir, exist_ok=True)
         self._path = os.path.join(config_dir, ARCHIVO_SETTINGS)
         self.data  = dict(self.DEFAULTS)
@@ -449,8 +443,6 @@ class Settings:
         try:
             with open(self._path, "w", encoding="utf-8") as f:
                 json.dump(self.data, f, ensure_ascii=False, indent=2)
-            import ctypes
-            ctypes.windll.kernel32.SetFileAttributesW(str(self._path), 2)
         except Exception:
             pass
 
@@ -1463,6 +1455,7 @@ class VideoTrackerApp:
         if self._vista_actual in ("tarjetas", "mosaicos"):
             self._rebuild_cards()
         self._update_ui()
+        self.root.update()
         if hasattr(self, '_watcher'):
             self._watcher.update_videos(self.videos, self.directorio)
         
