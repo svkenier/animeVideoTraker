@@ -601,6 +601,12 @@ class CardView:
         self._canvas.configure(scrollregion=self._canvas.bbox("all"))
 
     # ── Canvas resize: update inner width + relayout if cols changed ─────────
+    def clear(self):
+        for w in self._inner.winfo_children():
+            w.destroy()
+        self._cards.clear()
+        self._order.clear()
+
     def _on_canvas_resize(self, ev):
         # Keep inner frame width = canvas width (minus scrollbar padding)
         self._canvas.itemconfig(self._win_id, width=ev.width - self.PAD * 2)
@@ -1091,6 +1097,12 @@ class MosaicosView:
             w.bind("<MouseWheel>", lambda e: self._canvas.yview_scroll(int(-1*(e.delta/120)), "units"))
             w.bind("<Button-1>", lambda e, wid=w: self._app._force_focus(-1) if e.widget == wid else None)
 
+    def clear(self):
+        for w in self._inner.winfo_children():
+            w.destroy()
+        self._tiles.clear()
+        self._order.clear()
+
     def _on_canvas_resize(self, event):
         self._canvas.itemconfig(self._win_id, width=event.width)
         w = event.width
@@ -1457,7 +1469,7 @@ class VideoTrackerApp:
         if self._vista_actual in ("tarjetas", "mosaicos"):
             self._rebuild_cards()
         self._update_ui()
-        self.root.update()
+        self.root.update_idletasks()
         if hasattr(self, '_watcher'):
             self._watcher.update_videos(self.videos, self.directorio)
         
