@@ -891,20 +891,8 @@ class VentanaConfiguracion(tk.Toplevel):
 
         p = {"padx": 20, "pady": 4}
 
-        # Section 0: Carpetas Seguidas
-        self._sec(body, "0.  Gestor de Carpetas / Series", is_first=True)
-        fc = tk.Frame(body, bg=bg); fc.pack(fill="x", padx=20, pady=4)
-        
-        btn_add = tk.Label(fc, text=" + Añadir nueva carpeta...", bg=C["bg_btn"], fg=C["fg_normal"], font=("Segoe UI", 9, "bold"), cursor="hand2", pady=5)
-        btn_add.pack(fill="x")
-        btn_add.bind("<Button-1>", lambda e: self._add_folder())
-        
-        self.folders_frame = tk.Frame(body, bg=bg)
-        self.folders_frame.pack(fill="x", padx=20, pady=5)
-        self._render_folders()
-        
         # Section 1: Theme
-        self._sec(body, "1.  Modo de color", is_first=False)
+        self._sec(body, "1.  Modo de color", is_first=True)
         rf = tk.Frame(body, bg=bg); rf.pack(fill="x", **p)
         for val, lbl in [("oscuro", "Modo Oscuro (Catppuccin)"),
                           ("claro",  "Modo Claro")]:
@@ -1044,87 +1032,7 @@ class VentanaConfiguracion(tk.Toplevel):
         # No destruimos la ventana para que el usuario vea el cambio al instante
 
 
-    def _add_folder(self):
-        from tkinter import filedialog
-        ruta = filedialog.askdirectory(title="Seleccionar Carpeta de Anime")
-        if ruta:
-            import os
-            ruta = os.path.normpath(ruta)
-            self._st.add_carpeta(ruta)
-            self.app.cambiar_carpeta_activa(ruta)
-            self._render_folders()
-            
-    def _render_folders(self):
-        for w in self.folders_frame.winfo_children():
-            w.destroy()
-        
-        carpetas = self._st.carpetas_seguidas
-        activa = self._st.carpeta_activa
-        
-        if not carpetas:
-            tk.Label(self.folders_frame, text="No sigues ninguna carpeta aún.", bg=C["bg_header"], fg=C["fg_sub"], font=("Segoe UI", 9)).pack(anchor="w")
-            return
-            
-        for c in carpetas:
-            import os
-            f = tk.Frame(self.folders_frame, bg=C["bg_header"], pady=2)
-            f.pack(fill="x")
-            
-            is_active = (c == activa)
-            color = C["border_active"] if is_active else C["fg_normal"]
-            name = os.path.basename(c) or c
-            
-            lbl = tk.Label(f, text=f"{'▶ ' if is_active else '  '}{name}", fg=color, bg=C["bg_header"], font=("Segoe UI", 9, "bold" if is_active else "normal"))
-            lbl.pack(side="left")
-            
-            if not is_active:
-                btn_act = tk.Label(f, text="Activar", bg=C["bg_btn"], fg=C["fg_normal"], font=("Segoe UI", 8), cursor="hand2", padx=4)
-                btn_act.pack(side="right", padx=2)
-                btn_act.bind("<Button-1>", lambda e, r=c: self._activate_folder(r))
-            
-            btn_del = tk.Label(f, text="Dejar de traquear", bg="#8B0000", fg="#FFFFFF", font=("Segoe UI", 8), cursor="hand2", padx=4)
-            btn_del.pack(side="right", padx=2)
-            btn_del.bind("<Button-1>", lambda e, r=c: self._untrack_folder(r))
-            
-    def _activate_folder(self, ruta):
-        self._st.set_carpeta_activa(ruta)
-        self.app.cambiar_carpeta_activa(ruta)
-        self._render_folders()
-        
-    def _untrack_folder(self, ruta):
-        from tkinter import messagebox
-        import os
-        import ctypes
-        
-        if messagebox.askyesno("Confirmar", f"¿Dejar de traquear esta carpeta?\nSe eliminará su historial (.tracker.json).\n\n{ruta}"):
-            # Borrar .tracker.json fisicamente
-            tracker_path = os.path.join(ruta, ARCHIVO_REGISTRO)
-            if os.path.exists(tracker_path):
-                try:
-                    ctypes.windll.kernel32.SetFileAttributesW(tracker_path, 0x80)
-                    os.remove(tracker_path)
-                except Exception as e:
-                    print(e)
-            
-            self._st.remove_carpeta(ruta)
-            if self._st.carpeta_activa:
-                self.app.cambiar_carpeta_activa(self._st.carpeta_activa)
-            else:
-                self.app._show_empty_state()
-            self._render_folders()
-            
-    def _save(self):
-        """Save pending changes for ALL themes, then apply and close."""
-        self._st.tema           = self._tema_v.get()
-        self._st.fuente_familia = self._fuente_v.get()
-        self._st.fuente_tamano  = self._tamano_v.get()
-        # Persist pending color changes for each theme independently
-        for tema_key in ("oscuro", "claro"):
-            for k, v in self._pending[tema_key].items():
-                self._st.set_custom_color(k, v, tema=tema_key)
-        self._st.apply_theme()
-        self._st.save()
-        self._apply()
+
         self.destroy()
 
 
@@ -1530,8 +1438,23 @@ class VideoTrackerApp:
             self._empty_state_frame.destroy()
         self._empty_state_frame = tk.Frame(self.root, bg=C["bg_root"])
         self._empty_state_frame.pack(fill="both", expand=True)
-        lbl = tk.Label(self._empty_state_frame, text="No hay carpetas activas.\n\nAbre Configuracion para anadir una serie.", bg=C["bg_root"], fg=C["fg_sub"], font=("Segoe UI", 12))
-        lbl.pack(expand=True)
+        # Large Add Button
+        frm_center = tk.Frame(self._empty_state_frame, bg=C["bg_root"])
+        frm_center.pack(expand=True)
+        lbl = tk.Label(frm_center, text="No hay ninguna serie configurada.", bg=C["bg_root"], fg=C["fg_sub"], font=("Segoe UI", 12))
+        lbl.pack(pady=(0, 20))
+        
+        btn_add = tk.Label(frm_center, text=" + Añadir Serie / Carpeta ", bg=C["border_active"], fg="#fff", font=("Segoe UI", 12, "bold"), cursor="hand2", padx=20, pady=10)
+        btn_add.pack()
+        
+        def _add_first():
+            from tkinter import filedialog
+            ruta = filedialog.askdirectory(title="Seleccionar Carpeta de Anime")
+            if ruta:
+                self.settings.add_carpeta(ruta)
+                self.cambiar_carpeta_activa(ruta)
+                
+        btn_add.bind("<Button-1>", lambda e: _add_first())
 
 
     def _cfg_window(self):
@@ -1555,6 +1478,106 @@ class VideoTrackerApp:
             self.root.bind(k, self._on_key_press)
 
     # ── UI build ─────────────────────────────────────────────────────────────
+
+    def _toggle_folder_manager(self):
+        import tkinter as tk
+        from tkinter import filedialog
+        
+        # Check if already open
+        if hasattr(self, '_fm_frame') and self._fm_frame and self._fm_frame.winfo_exists():
+            self._fm_frame.destroy()
+            self._fm_frame = None
+            if self.directorio:
+                self.cv.pack(side="left", fill="both", expand=True)
+                self.sb.pack(side="right", fill="y")
+            else:
+                self._show_empty_state()
+            return
+            
+        # Hide current views
+        if getattr(self, 'cv', None): self.cv.pack_forget()
+        if getattr(self, 'sb', None): self.sb.pack_forget()
+        if self._empty_state_frame: self._empty_state_frame.pack_forget()
+        
+        self._fm_frame = tk.Frame(self.root, bg=C["bg_main"])
+        self._fm_frame.pack(fill="both", expand=True)
+        
+        # Title
+        hdr = tk.Frame(self._fm_frame, bg=C["bg_header"])
+        hdr.pack(fill="x")
+        tk.Label(hdr, text="Gestor de Carpetas / Series", font=("Segoe UI", 16, "bold"), bg=C["bg_header"], fg=C["fg_title"]).pack(pady=15)
+        
+        # Add button
+        btn_add = tk.Label(self._fm_frame, text=" + Añadir nueva carpeta...", bg=C["bg_btn"], fg=C["fg_normal"], font=("Segoe UI", 10, "bold"), cursor="hand2", pady=8)
+        btn_add.pack(fill="x", padx=40, pady=10)
+        
+        def add_new():
+            ruta = filedialog.askdirectory(title="Seleccionar Carpeta de Anime")
+            if ruta:
+                self.settings.add_carpeta(ruta)
+                self.cambiar_carpeta_activa(ruta)
+                self._toggle_folder_manager() # close and refresh
+                
+        btn_add.bind("<Button-1>", lambda e: add_new())
+        
+        # List frame
+        list_frm = tk.Frame(self._fm_frame, bg=C["bg_main"])
+        list_frm.pack(fill="both", expand=True, padx=40, pady=10)
+        
+        carpetas = self.settings.carpetas_seguidas
+        activa = self.settings.carpeta_activa
+        
+        if not carpetas:
+            tk.Label(list_frm, text="No sigues ninguna carpeta aún.", bg=C["bg_main"], fg=C["fg_sub"], font=("Segoe UI", 10)).pack(pady=20)
+        else:
+            for c in carpetas:
+                is_active = (c == activa)
+                bg_row = C["bg_card_hover"] if is_active else C["bg_card"]
+                fg_row = C["fg_title"] if is_active else C["fg_normal"]
+                
+                row = tk.Frame(list_frm, bg=bg_row, bd=1, relief="solid")
+                row.pack(fill="x", pady=2)
+                
+                tk.Label(row, text=c, bg=bg_row, fg=fg_row, font=("Segoe UI", 9)).pack(side="left", padx=10, pady=6)
+                
+                def make_btn(parent, text, color, cmd):
+                    b = tk.Label(parent, text=text, bg=color, fg="#fff", font=("Segoe UI", 8, "bold"), cursor="hand2", padx=6, pady=2)
+                    b.pack(side="right", padx=5, pady=6)
+                    b.bind("<Button-1>", lambda e, c=cmd: c())
+                    return b
+                    
+                make_btn(row, "X", "#DC143C", lambda p=c: self._remove_folder_from_manager(p))
+                make_btn(row, "Abrir", C["bg_btn"], lambda p=c: os.startfile(p))
+                if not is_active:
+                    make_btn(row, "Activar", C["border_active"], lambda p=c: self._activate_folder_from_manager(p))
+                else:
+                    lbl = tk.Label(row, text="ACTIVA", bg=bg_row, fg=C["border_active"], font=("Segoe UI", 8, "bold"))
+                    lbl.pack(side="right", padx=5, pady=6)
+
+    def _activate_folder_from_manager(self, ruta):
+        self.settings.set_carpeta_activa(ruta)
+        self.cambiar_carpeta_activa(ruta)
+        self._toggle_folder_manager()
+        
+    def _remove_folder_from_manager(self, ruta):
+        import tkinter.messagebox as messagebox
+        if messagebox.askyesno("Confirmar", f"¿Dejar de traquear esta carpeta?\n{ruta}"):
+            # Delete .tracker.json
+            tracker_file = os.path.join(ruta, ".tracker.json")
+            if os.path.exists(tracker_file):
+                try: os.remove(tracker_file)
+                except Exception: pass
+            
+            self.settings.remove_carpeta(ruta)
+            if self.directorio == ruta:
+                nueva_activa = self.settings.carpeta_activa
+                self.cambiar_carpeta_activa(nueva_activa)
+                
+            # Refresh manager view if open
+            if hasattr(self, '_fm_frame') and self._fm_frame and self._fm_frame.winfo_exists():
+                self._toggle_folder_manager() # close
+                self._toggle_folder_manager() # open
+
     def _build_ui(self):
         self._build_header()
         self._build_content()
@@ -1594,7 +1617,7 @@ class VideoTrackerApp:
         bf.pack(side="right")
         self._bf = bf
 
-        b1 = self._mkbtn(bf, "  Carpeta  ",   self._open_folder)
+        b1 = self._mkbtn(bf, "  Carpeta  ",   self._toggle_folder_manager)
         b2 = self._mkbtn(bf, "  Refrescar  ", self._on_refresh)
         b3 = self._mkbtn(bf, "\u2699 Config", self._open_config)
 
@@ -1968,6 +1991,14 @@ class VideoTrackerApp:
     def _update_labels(self):
         total    = len(self.videos)
         self.lbl_total.config(text=f"{total} videos")
+        
+        # Update header dynamically
+        if hasattr(self, '_lbl_name') and hasattr(self, '_lbl_path'):
+            import os
+            name = os.path.basename(self.directorio) or self.directorio
+            self._lbl_name.config(text=name)
+            self._lbl_path.config(text=self.directorio)
+            
         if total == 0:
             self.lbl_prog.config(text="No se encontraron videos en esta carpeta")
             self.lbl_badge.config(text="")
