@@ -25,7 +25,10 @@ SYNC_INTERVAL_S = 2.5   # segundos entre chequeos del watcher de ventanas
 EXTS_VALIDAS     = {".mp4",".mkv",".avi",".mov",".webm",".flv",".wmv",".m4v",".ts",".ogv"}
 ARCHIVO_REGISTRO = ".tracker.json"
 ARCHIVO_SETTINGS = "tracker_settings.json"
-FUENTES          = ["Consolas","Cascadia Code","Segoe UI","Arial","Verdana","Courier New"]
+FUENTES          = [
+    "Consolas", "Courier New", "JetBrains Mono", "Comic Sans MS", 
+    "Segoe UI", "Calibri", "Verdana", "Arial", "Tahoma", "Trebuchet MS"
+]
 
 GENERIC_READ                      = 0x80000000
 OPEN_EXISTING                     = 3
@@ -822,6 +825,14 @@ class VentanaConfiguracion(tk.Toplevel):
                  bg=bg, fg=C["fg_title"], pady=10).pack(fill="x")
         tk.Frame(self, bg=C["separator"], height=1).pack(fill="x")
 
+        # Action buttons (packed first to reserve bottom space)
+        tk.Frame(self, bg=C["separator"], height=1).pack(fill="x", side="bottom")
+        bar = tk.Frame(self, bg=bg, pady=10); bar.pack(fill="x", side="bottom")
+        self._btn(bar, "Guardar y Aplicar", self._save,
+                  C["border_active"], "#000").pack(side="right", padx=(0, 14))
+        self._btn(bar, "Cancelar",          self.destroy,
+                  C["bg_btn"], C["fg_btn"]).pack(side="right", padx=6)
+
         # Scrollable body
         cv   = tk.Canvas(self, bg=bg, highlightthickness=0, bd=0)
         sb   = tk.Scrollbar(self, orient="vertical", command=cv.yview)
@@ -841,7 +852,7 @@ class VentanaConfiguracion(tk.Toplevel):
         p = {"padx": 20, "pady": 4}
 
         # Section 1: Theme
-        self._sec(body, "1.  Modo de color")
+        self._sec(body, "1.  Modo de color", is_first=True)
         rf = tk.Frame(body, bg=bg); rf.pack(fill="x", **p)
         for val, lbl in [("oscuro", "Modo Oscuro (Catppuccin)"),
                           ("claro",  "Modo Claro")]:
@@ -876,23 +887,22 @@ class VentanaConfiguracion(tk.Toplevel):
         tk.Label(ff, text="pt  (16 recomendado, estilo bold)",
                  font=("Segoe UI", 8), bg=bg, fg=C["fg_sub"]
                  ).grid(row=1, column=2, padx=6)
-        tk.Frame(body, bg=bg, height=10).pack()
+        tk.Frame(body, bg=bg, height=20).pack()
+        
+        # Reset button inside scrollable area
+        reset_bar = tk.Frame(body, bg=bg)
+        reset_bar.pack(fill="x", pady=(0, 20))
+        self._btn(reset_bar, "Restaurar colores por defecto", self._reset,
+                  "#DC143C", "#FFFFFF").pack()
 
-        # Action buttons
-        tk.Frame(self, bg=C["separator"], height=1).pack(fill="x", side="bottom")
-        bar = tk.Frame(self, bg=bg, pady=10); bar.pack(fill="x", side="bottom")
-        self._btn(bar, "Guardar y Aplicar", self._save,
-                  C["border_active"], "#000").pack(side="right", padx=(0, 14))
-        self._btn(bar, "Restablecer tema",  self._reset,
-                  C["bg_btn"], C["fg_btn"]).pack(side="right", padx=6)
-        self._btn(bar, "Cancelar",          self.destroy,
-                  C["bg_btn"], C["fg_btn"]).pack(side="right", padx=6)
 
-    def _sec(self, p, t):
+
+    def _sec(self, p, t, is_first=False):
         bg = C["bg_header"]
-        tk.Frame(p, bg=C["separator"], height=1).pack(fill="x", padx=20, pady=(10, 0))
+        if not is_first:
+            tk.Frame(p, bg=C["separator"], height=1).pack(fill="x", padx=20, pady=(10, 0))
         tk.Label(p, text=t, font=("Segoe UI", 10, "bold"),
-                 bg=bg, fg=C["fg_title"]).pack(anchor="w", padx=20, pady=(4, 2))
+                 bg=bg, fg=C["fg_title"]).pack(anchor="w", padx=20, pady=(4 if not is_first else 0, 2))
 
     def _color_row(self, parent, key, label, bg):
         """Color picker row for a simplified color key (per-theme aware)."""
@@ -951,16 +961,25 @@ class VentanaConfiguracion(tk.Toplevel):
         self._apply()
 
     def _reset(self):
-        """Reset custom colors for the CURRENT selected theme only."""
+        """Reset custom colors for the CURRENT selected theme and font defaults."""
         tema = self._tema_v.get()
         self._st.tema = tema
         self._st.reset_custom_colors(tema)
         self._pending[tema].clear()
+        
+        # Restaurar fuentes por defecto
+        def_font = self._st.DEFAULTS["fuente_familia"]
+        def_size = self._st.DEFAULTS["fuente_tamano"]
+        self._fuente_v.set(def_font)
+        self._tamano_v.set(def_size)
+        self._st.fuente_familia = def_font
+        self._st.fuente_tamano = def_size
+
         self._st.apply_theme()
         self._reload_swatches(tema)
-        self._st.save()
+        self._st.save()  # Solo guarda settings, NO toca .tracker.json
         self._apply()
-        self.destroy()
+        # No destruimos la ventana para que el usuario vea el cambio al instante
 
     def _save(self):
         """Save pending changes for ALL themes, then apply and close."""
