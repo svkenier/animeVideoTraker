@@ -2058,9 +2058,17 @@ class VideoTrackerApp:
             if hasattr(self, '_lbl_name') and hasattr(self, '_lbl_path'):
                 self._lbl_name.config(text="")
                 self._lbl_path.config(text="")
-            self.lbl_prog.config(text="")
-            self.lbl_badge.config(text="")
+            if hasattr(self, 'lbl_prog'):
+                self.lbl_prog.pack_forget()
+            if hasattr(self, 'lbl_badge'):
+                self.lbl_badge.pack_forget()
             return
+            
+        # Ensure they are packed if they were forgotten
+        if hasattr(self, 'lbl_prog') and not self.lbl_prog.winfo_ismapped():
+            self.lbl_prog.pack(side="left")
+        if hasattr(self, 'lbl_badge') and not self.lbl_badge.winfo_ismapped():
+            self.lbl_badge.pack(side="right")
             
         # Update header dynamically
         if hasattr(self, '_lbl_name') and hasattr(self, '_lbl_path'):
