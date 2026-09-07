@@ -424,6 +424,29 @@ class Settings:
         # Ensure per-theme dicts always exist
         self.data.setdefault("colores_oscuro", {})
         self.data.setdefault("colores_claro", {})
+        
+        # Filter out invalid or residual paths (cwd, exe path, non-existent)
+        import sys, os
+        cwd = os.getcwd().lower()
+        exe_path = os.path.dirname(os.path.abspath(sys.argv[0])).lower()
+        if getattr(sys, "frozen", False):
+            exe_path = os.path.dirname(sys.executable).lower()
+            
+        valid_carpetas = []
+        for c in self.data.get("carpetas_seguidas", []):
+            try:
+                c_low = os.path.normpath(c).lower()
+                if c_low == cwd or c_low == exe_path:
+                    continue
+                if os.path.isdir(c):
+                    valid_carpetas.append(c)
+            except Exception:
+                pass
+                
+        self.data["carpetas_seguidas"] = valid_carpetas
+        if self.data.get("carpeta_activa") not in valid_carpetas:
+            self.data["carpeta_activa"] = valid_carpetas[0] if valid_carpetas else ""
+
 
     def save(self):
         try:
@@ -1372,11 +1395,6 @@ class VideoTrackerApp:
         self.settings = Settings(self.app_dir)
         self.settings.apply_theme()
         
-        # Migracion: si hay tracker en app_dir, anadirlo a carpetas
-        old_tracker = os.path.join(self.app_dir, ARCHIVO_REGISTRO)
-        if os.path.isfile(old_tracker) and self.app_dir not in self.settings.carpetas_seguidas:
-            self.settings.add_carpeta(self.app_dir)
-            
         self.directorio = self.settings.carpeta_activa
         self._cfg_window()
 
@@ -1421,8 +1439,19 @@ class VideoTrackerApp:
 
     def cambiar_carpeta_activa(self, nueva_ruta):
         import os
-        if not os.path.isdir(nueva_ruta):
+        import tkinter as tk
+        if not nueva_ruta or not os.path.isdir(nueva_ruta):
+            self.directorio = ""
+            self.settings.set_carpeta_activa("")
+            self.videos = []
+            self.ultimo_visto = ""
+            if hasattr(self, '_card_view') and self._card_view: self._card_view.clear()
+            if hasattr(self, '_mos_view') and self._mos_view: self._mos_view.clear()
+            if hasattr(self, 'listbox') and self.listbox: self.listbox.delete(0, tk.END)
+            self._update_labels()
+            self._show_empty_state()
             return
+            
         self.settings.set_carpeta_activa(nueva_ruta)
         self.directorio = nueva_ruta
         self.ultimo_visto = self._load_progress()
