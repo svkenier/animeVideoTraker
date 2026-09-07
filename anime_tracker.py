@@ -363,7 +363,32 @@ class Settings:
         "fuente_tamano":  16,
         "colores_oscuro": {},   # custom colors for dark theme
         "colores_claro":  {},   # custom colors for light theme
+        "carpetas_seguidas": [],
+        "carpeta_activa": ""
     }
+
+    @property
+    def carpetas_seguidas(self): return self.data.get("carpetas_seguidas", [])
+    @property
+    def carpeta_activa(self): return self.data.get("carpeta_activa", "")
+    
+    def add_carpeta(self, ruta):
+        if ruta not in self.data.get("carpetas_seguidas", []):
+            self.data.setdefault("carpetas_seguidas", []).append(ruta)
+        self.data["carpeta_activa"] = ruta
+        self._save()
+        
+    def set_carpeta_activa(self, ruta):
+        self.data["carpeta_activa"] = ruta
+        self._save()
+        
+    def remove_carpeta(self, ruta):
+        carpetas = self.data.get("carpetas_seguidas", [])
+        if ruta in carpetas:
+            carpetas.remove(ruta)
+        if self.data.get("carpeta_activa", "") == ruta:
+            self.data["carpeta_activa"] = carpetas[0] if carpetas else ""
+        self._save()
 
     def __init__(self, directory):
         self._path = os.path.join(directory, ARCHIVO_SETTINGS)
@@ -793,10 +818,11 @@ class CardView:
 # ---------------------------------------------------------------------------
 class VentanaConfiguracion(tk.Toplevel):
 
-    def __init__(self, parent, settings, on_apply):
+    def __init__(self, parent, app):
         super().__init__(parent)
-        self._st    = settings
-        self._apply = on_apply
+        self.app = app
+        self._st = app.settings
+        self._apply = app._apply_theme_all
         self._pending  = {"oscuro": {}, "claro": {}}  # per-theme pending color overrides
         self._swatches = {}                            # simple_key -> swatch Label widget
 
@@ -865,8 +891,20 @@ class VentanaConfiguracion(tk.Toplevel):
 
         p = {"padx": 20, "pady": 4}
 
+        # Section 0: Carpetas Seguidas
+        self._sec(body, "0.  Gestor de Carpetas / Series", is_first=True)
+        fc = tk.Frame(body, bg=bg); fc.pack(fill="x", padx=20, pady=4)
+        
+        btn_add = tk.Label(fc, text=" + Añadir nueva carpeta...", bg=C["bg_btn"], fg=C["fg_normal"], font=("Segoe UI", 9, "bold"), cursor="hand2", pady=5)
+        btn_add.pack(fill="x")
+        btn_add.bind("<Button-1>", lambda e: self._add_folder())
+        
+        self.folders_frame = tk.Frame(body, bg=bg)
+        self.folders_frame.pack(fill="x", padx=20, pady=5)
+        self._render_folders()
+        
         # Section 1: Theme
-        self._sec(body, "1.  Modo de color", is_first=True)
+        self._sec(body, "1.  Modo de color", is_first=False)
         rf = tk.Frame(body, bg=bg); rf.pack(fill="x", **p)
         for val, lbl in [("oscuro", "Modo Oscuro (Catppuccin)"),
                           ("claro",  "Modo Claro")]:
@@ -1005,6 +1043,76 @@ class VentanaConfiguracion(tk.Toplevel):
         self._apply()
         # No destruimos la ventana para que el usuario vea el cambio al instante
 
+
+    def _add_folder(self):
+        from tkinter import filedialog
+        ruta = filedialog.askdirectory(title="Seleccionar Carpeta de Anime")
+        if ruta:
+            import os
+            ruta = os.path.normpath(ruta)
+            self._st.add_carpeta(ruta)
+            self.app.cambiar_carpeta_activa(ruta)
+            self._render_folders()
+            
+    def _render_folders(self):
+        for w in self.folders_frame.winfo_children():
+            w.destroy()
+        
+        carpetas = self._st.carpetas_seguidas
+        activa = self._st.carpeta_activa
+        
+        if not carpetas:
+            tk.Label(self.folders_frame, text="No sigues ninguna carpeta aún.", bg=C["bg_header"], fg=C["fg_sub"], font=("Segoe UI", 9)).pack(anchor="w")
+            return
+            
+        for c in carpetas:
+            import os
+            f = tk.Frame(self.folders_frame, bg=C["bg_header"], pady=2)
+            f.pack(fill="x")
+            
+            is_active = (c == activa)
+            color = C["border_active"] if is_active else C["fg_normal"]
+            name = os.path.basename(c) or c
+            
+            lbl = tk.Label(f, text=f"{'▶ ' if is_active else '  '}{name}", fg=color, bg=C["bg_header"], font=("Segoe UI", 9, "bold" if is_active else "normal"))
+            lbl.pack(side="left")
+            
+            if not is_active:
+                btn_act = tk.Label(f, text="Activar", bg=C["bg_btn"], fg=C["fg_normal"], font=("Segoe UI", 8), cursor="hand2", padx=4)
+                btn_act.pack(side="right", padx=2)
+                btn_act.bind("<Button-1>", lambda e, r=c: self._activate_folder(r))
+            
+            btn_del = tk.Label(f, text="Dejar de traquear", bg="#8B0000", fg="#FFFFFF", font=("Segoe UI", 8), cursor="hand2", padx=4)
+            btn_del.pack(side="right", padx=2)
+            btn_del.bind("<Button-1>", lambda e, r=c: self._untrack_folder(r))
+            
+    def _activate_folder(self, ruta):
+        self._st.set_carpeta_activa(ruta)
+        self.app.cambiar_carpeta_activa(ruta)
+        self._render_folders()
+        
+    def _untrack_folder(self, ruta):
+        from tkinter import messagebox
+        import os
+        import ctypes
+        
+        if messagebox.askyesno("Confirmar", f"¿Dejar de traquear esta carpeta?\nSe eliminará su historial (.tracker.json).\n\n{ruta}"):
+            # Borrar .tracker.json fisicamente
+            tracker_path = os.path.join(ruta, ARCHIVO_REGISTRO)
+            if os.path.exists(tracker_path):
+                try:
+                    ctypes.windll.kernel32.SetFileAttributesW(tracker_path, 0x80)
+                    os.remove(tracker_path)
+                except Exception as e:
+                    print(e)
+            
+            self._st.remove_carpeta(ruta)
+            if self._st.carpeta_activa:
+                self.app.cambiar_carpeta_activa(self._st.carpeta_activa)
+            else:
+                self.app._show_empty_state()
+            self._render_folders()
+            
     def _save(self):
         """Save pending changes for ALL themes, then apply and close."""
         self._st.tema           = self._tema_v.get()
@@ -1235,6 +1343,10 @@ class WindowWatcher:
     def start(self, videos: list, dirpath: str, out_queue: queue.Queue):
         """Arranca (o reinicia) el hilo watcher con una lista nueva de videos."""
         self._videos  = list(videos)
+        self._dirpath = dirpath
+        
+    def update_context(self, videos: list, dirpath: str):
+        self._videos = list(videos)
         self._dirpath = dirpath
         self._queue   = out_queue
         if self._thread and self._thread.is_alive():
@@ -1704,6 +1816,9 @@ class VideoTrackerApp:
 
     # ── Data ──────────────────────────────────────────────────────────────────
     def _refresh_videos(self):
+        if not self.directorio or not __import__('os').path.isdir(self.directorio):
+            self.videos = []
+            return
         self.videos = sorted(
             [f for f in os.listdir(self.directorio)
              if os.path.splitext(f)[1].lower() in EXTS_VALIDAS],
@@ -1718,6 +1833,7 @@ class VideoTrackerApp:
         Normaliza el atributo HIDDEN antes de leer para compatibilidad
         con OneDrive y rutas sincronizadas donde os.path.exists puede fallar.
         """
+        if not self.directorio: return ""
         ruta = os.path.join(self.directorio, ARCHIVO_REGISTRO)
         try:
             # os.path.isfile es mas robusto que os.path.exists para HIDDEN
@@ -1736,6 +1852,7 @@ class VideoTrackerApp:
 
     def _save_progress(self, name):
         """Persiste el último capítulo visto en disco de forma robusta.
+        
 
         Pasos:
         1. Quitar atributo HIDDEN antes de escribir (en Windows/OneDrive,
@@ -1990,7 +2107,7 @@ class VideoTrackerApp:
                 self._card_view.set_focus(idx)
 
     def _open_config(self):
-        VentanaConfiguracion(self.root, self.settings, self._apply_theme_all)
+        VentanaConfiguracion(self.root, self)
 
     def _on_refresh(self):
         self._refresh_videos()
