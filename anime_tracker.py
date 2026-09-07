@@ -211,7 +211,9 @@ def extract_thumb_bytes(filepath, tw=THUMB_W, th=THUMB_H):
         print(f"DEBUG EXTRACCIÓN: Procesando {filepath}")
         cap = cv2.VideoCapture(filepath)
         if not cap.isOpened():
-            with open("tracker_debug.log", "a", encoding="utf-8") as _log:
+            log_dir = os.path.join(os.getenv('APPDATA', os.path.expanduser('~')), 'AnimeTracker')
+            os.makedirs(log_dir, exist_ok=True)
+            with open(os.path.join(log_dir, "tracker_debug.log"), "a", encoding="utf-8") as _log:
                 _log.write(f"OpenCV Fallo: cap.isOpened() devolvio False para {filepath}\n")
             return None
         total_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
@@ -220,7 +222,9 @@ def extract_thumb_bytes(filepath, tw=THUMB_W, th=THUMB_H):
         ret, frame = cap.read()
         cap.release()
         if not ret or frame is None:
-            with open("tracker_debug.log", "a", encoding="utf-8") as _log:
+            log_dir = os.path.join(os.getenv('APPDATA', os.path.expanduser('~')), 'AnimeTracker')
+            os.makedirs(log_dir, exist_ok=True)
+            with open(os.path.join(log_dir, "tracker_debug.log"), "a", encoding="utf-8") as _log:
                 _log.write(f"OpenCV Fallo: cap.read() devolvio ret={ret} para {filepath} en el frame {target_frame}\n")
             return None
         # Redimensionar la miniatura (ancho de 200px para llenar tarjetas/mosaicos)
@@ -240,7 +244,9 @@ def extract_thumb_bytes(filepath, tw=THUMB_W, th=THUMB_H):
         # 3. Retornar los bytes puros (Tkinter PhotoImage falla si se usa base64 para PPM)
         return ppm_bytes
     except Exception as e:
-        with open("tracker_debug.log", "a", encoding="utf-8") as _log:
+        log_dir = os.path.join(os.getenv('APPDATA', os.path.expanduser('~')), 'AnimeTracker')
+        os.makedirs(log_dir, exist_ok=True)
+        with open(os.path.join(log_dir, "tracker_debug.log"), "a", encoding="utf-8") as _log:
             _log.write(f"OpenCV Fallo para {filepath}: {repr(e)}\n")
         return None
 
@@ -429,12 +435,6 @@ class Settings:
         def is_valid(p):
             try:
                 if not os.path.isdir(p): return False
-                c_low = os.path.normpath(p).lower()
-                if c_low == os.getcwd().lower(): return False
-                exe_p = os.path.dirname(os.path.abspath(sys.argv[0])).lower()
-                if getattr(sys, "frozen", False):
-                    exe_p = os.path.dirname(sys.executable).lower()
-                if c_low == exe_p: return False
                 return True
             except: return False
 
@@ -1457,8 +1457,6 @@ class VideoTrackerApp:
             self._empty_state_frame.pack_forget()
         
         # Reset views
-        for b in self._btns: b.destroy()
-        self._btns.clear()
         if self._card_view: self._card_view.clear()
         if self._mos_view: self._mos_view.clear()
         
