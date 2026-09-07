@@ -861,7 +861,7 @@ class VentanaConfiguracion(tk.Toplevel):
         self.update_idletasks()
         pw, ph = parent.winfo_width(), parent.winfo_height()
         px, py = parent.winfo_rootx(), parent.winfo_rooty()
-        w, h   = 530, 660
+        w, h   = 530, 520
         self.geometry(f"{w}x{h}+{px+(pw-w)//2}+{py+(ph-h)//2}")
 
         self._build()
@@ -882,21 +882,9 @@ class VentanaConfiguracion(tk.Toplevel):
         self._btn(bar, "Cancelar",          self.destroy,
                   C["bg_btn"], C["fg_btn"]).pack(side="right", padx=6)
 
-        # Scrollable body
-        cv   = tk.Canvas(self, bg=bg, highlightthickness=0, bd=0)
-        sb   = tk.Scrollbar(self, orient="vertical", command=cv.yview)
-        cv.configure(yscrollcommand=sb.set)
-        sb.pack(side="right", fill="y")
-        cv.pack(side="left", fill="both", expand=True)
-        body = tk.Frame(cv, bg=bg)
-        wid  = cv.create_window((0, 0), window=body, anchor="nw")
-        body.bind("<Configure>",
-            lambda e: cv.configure(scrollregion=cv.bbox("all")))
-        cv.bind("<Configure>",
-            lambda e: cv.itemconfig(wid, width=e.width))
-        for w in [cv, body]:
-            w.bind("<MouseWheel>",
-                lambda e: cv.yview_scroll(int(-1*(e.delta/120)), "units"))
+        # Static body
+        body = tk.Frame(self, bg=bg)
+        body.pack(fill="both", expand=True)
 
         p = {"padx": 20, "pady": 4}
 
@@ -1510,15 +1498,13 @@ class VideoTrackerApp:
             self._fm_frame.destroy()
             self._fm_frame = None
             if self.directorio:
-                self.cv.pack(side="left", fill="both", expand=True)
-                self.sb.pack(side="right", fill="y")
+                self._outer.pack(fill="both", expand=True)
             else:
                 self._show_empty_state()
             return
             
         # Hide current views
-        if getattr(self, 'cv', None): self.cv.pack_forget()
-        if getattr(self, 'sb', None): self.sb.pack_forget()
+        if getattr(self, '_outer', None): self._outer.pack_forget()
         if self._empty_state_frame: self._empty_state_frame.pack_forget()
         
         self._fm_frame = tk.Frame(self.root, bg=C["bg_main"])
