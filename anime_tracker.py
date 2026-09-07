@@ -1520,7 +1520,7 @@ class VideoTrackerApp:
         btn_back.bind("<Enter>", lambda e: e.widget.configure(bg=C["bg_btn_hover"]))
         btn_back.bind("<Leave>", lambda e: e.widget.configure(bg=C["bg_btn"]))
         
-        tk.Label(hdr, text="Gestor de Trackers / Series", font=("Segoe UI", 14, "bold"), bg=C["bg_header"], fg=C["fg_title"]).pack(side="left", pady=15, padx=10)
+        tk.Label(hdr, text="Gestor de Trackers", font=("Segoe UI", 14, "bold"), bg=C["bg_header"], fg=C["fg_title"]).pack(side="left", pady=15, padx=10)
         
         # Add button (Prominent)
         btn_add = tk.Label(self._fm_frame, text=" + Añadir nueva carpeta... ", bg=C["border_active"], fg="#ffffff", font=("Segoe UI", 10, "bold"), cursor="hand2", pady=8)
@@ -1543,17 +1543,35 @@ class VideoTrackerApp:
         activa = self.settings.carpeta_activa
         
         if not carpetas:
-            tk.Label(list_frm, text="No sigues ninguna carpeta aún.", bg=C["bg_main"], fg=C["fg_sub"], font=("Segoe UI", 10)).pack(pady=20)
+            tk.Label(list_frm, text="No sigues ninguna carpeta aún.", bg=C["bg_root"], fg=C["fg_sub"], font=("Segoe UI", 10)).pack(pady=20)
         else:
             for c in carpetas:
                 is_active = (c == activa)
                 bg_row = C["bg_card_hover"] if is_active else C["bg_card"]
                 fg_row = C["fg_title"] if is_active else C["fg_normal"]
                 
-                row = tk.Frame(list_frm, bg=bg_row, bd=1, relief="solid")
+                row = tk.Frame(list_frm, bg=bg_row, bd=1, relief="solid", cursor="hand2")
                 row.pack(fill="x", pady=2)
                 
-                tk.Label(row, text=c, bg=bg_row, fg=fg_row, font=("Segoe UI", 9)).pack(side="left", padx=10, pady=6)
+                lbl = tk.Label(row, text=c, bg=bg_row, fg=fg_row, font=("Segoe UI", 9), cursor="hand2")
+                lbl.pack(side="left", padx=10, pady=6)
+                
+                # Make the row and label clickable
+                row.bind("<Button-1>", lambda e, ruta=c: self._activate_folder_from_manager(ruta))
+                lbl.bind("<Button-1>", lambda e, ruta=c: self._activate_folder_from_manager(ruta))
+                
+                # Hover effect for the row
+                def _on_enter(e, w=row, w2=lbl, is_act=is_active):
+                    if not is_act:
+                        w.configure(bg=C["bg_card_hover"])
+                        w2.configure(bg=C["bg_card_hover"])
+                def _on_leave(e, w=row, w2=lbl, original_bg=bg_row):
+                    w.configure(bg=original_bg)
+                    w2.configure(bg=original_bg)
+                row.bind("<Enter>", _on_enter)
+                row.bind("<Leave>", _on_leave)
+                lbl.bind("<Enter>", _on_enter)
+                lbl.bind("<Leave>", _on_leave)
                 
                 def make_btn(parent, text, color, cmd):
                     b = tk.Label(parent, text=text, bg=color, fg="#fff", font=("Segoe UI", 8, "bold"), cursor="hand2", padx=6, pady=2)
