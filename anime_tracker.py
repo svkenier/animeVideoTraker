@@ -826,7 +826,7 @@ class VentanaConfiguracion(tk.Toplevel):
         self._pending  = {"oscuro": {}, "claro": {}}  # per-theme pending color overrides
         self._swatches = {}                            # simple_key -> swatch Label widget
 
-        self._tema_v   = tk.StringVar(value=self._st.tema_actual)
+        self._tema_v   = tk.StringVar(value=self._st.tema)
         self._fuente_v = tk.StringVar(value=self._st.fuente_familia)
         self._tamano_v = tk.IntVar(value=self._st.fuente_tamano)
 
@@ -1528,9 +1528,9 @@ class VideoTrackerApp:
         import tkinter as tk
         if self._empty_state_frame:
             self._empty_state_frame.destroy()
-        self._empty_state_frame = tk.Frame(self.root, bg=C["bg_main"])
+        self._empty_state_frame = tk.Frame(self.root, bg=C["bg_root"])
         self._empty_state_frame.pack(fill="both", expand=True)
-        lbl = tk.Label(self._empty_state_frame, text="No hay carpetas activas.\n\nAbre Configuracion para anadir una serie.", bg=C["bg_main"], fg=C["fg_sub"], font=("Segoe UI", 12))
+        lbl = tk.Label(self._empty_state_frame, text="No hay carpetas activas.\n\nAbre Configuracion para anadir una serie.", bg=C["bg_root"], fg=C["fg_sub"], font=("Segoe UI", 12))
         lbl.pack(expand=True)
 
 
