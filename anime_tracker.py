@@ -441,10 +441,12 @@ class Settings:
 
     def save(self):
         try:
+            import os
+            os.makedirs(os.path.dirname(self._path), exist_ok=True)
             with open(self._path, "w", encoding="utf-8") as f:
                 json.dump(self.data, f, ensure_ascii=False, indent=2)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Error guardando settings: {e}")
 
     def apply_theme(self):
         """Rebuild global C[] from base theme + per-theme custom overrides."""
