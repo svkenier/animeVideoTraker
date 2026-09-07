@@ -1651,9 +1651,11 @@ class VideoTrackerApp:
                 nueva_activa = self.settings.carpeta_activa
                 self.cambiar_carpeta_activa(nueva_activa)
                 
-            # Refresh manager view if open instantly using after() to prevent event conflicts
+            # Refresh manager view synchronously
             if hasattr(self, '_fm_frame') and self._fm_frame and self._fm_frame.winfo_exists():
-                self._refresh_folder_manager_list()
+                if hasattr(self, 'folder_list_frame'):
+                    self._draw_folder_list()
+                    self.root.update_idletasks()
 
     def _build_ui(self):
         self._build_header()
