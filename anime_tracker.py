@@ -373,6 +373,7 @@ class Settings:
     def carpeta_activa(self): return self.data.get("carpeta_activa", "")
     
     def add_carpeta(self, ruta):
+        if not getattr(self, '_is_valid_path', lambda x: True)(ruta): return
         if ruta not in self.data.get("carpetas_seguidas", []):
             self.data.setdefault("carpetas_seguidas", []).append(ruta)
         self.data["carpeta_activa"] = ruta
@@ -425,26 +426,23 @@ class Settings:
         self.data.setdefault("colores_oscuro", {})
         self.data.setdefault("colores_claro", {})
         
-        # Filter out invalid or residual paths (cwd, exe path, non-existent)
-        cwd = os.getcwd().lower()
-        exe_path = os.path.dirname(os.path.abspath(sys.argv[0])).lower()
-        if getattr(sys, "frozen", False):
-            exe_path = os.path.dirname(sys.executable).lower()
-            
-        valid_carpetas = []
-        for c in self.data.get("carpetas_seguidas", []):
+        def is_valid(p):
             try:
-                c_low = os.path.normpath(c).lower()
-                if c_low == cwd or c_low == exe_path:
-                    continue
-                if os.path.isdir(c):
-                    valid_carpetas.append(c)
-            except Exception:
-                pass
-                
+                if not os.path.isdir(p): return False
+                c_low = os.path.normpath(p).lower()
+                if c_low == os.getcwd().lower(): return False
+                exe_p = os.path.dirname(os.path.abspath(sys.argv[0])).lower()
+                if getattr(sys, "frozen", False):
+                    exe_p = os.path.dirname(sys.executable).lower()
+                if c_low == exe_p: return False
+                return True
+            except: return False
+
+        valid_carpetas = [c for c in self.data.get("carpetas_seguidas", []) if is_valid(c)]
         self.data["carpetas_seguidas"] = valid_carpetas
         if self.data.get("carpeta_activa") not in valid_carpetas:
             self.data["carpeta_activa"] = valid_carpetas[0] if valid_carpetas else ""
+        self._is_valid_path = is_valid
 
 
     def save(self):
@@ -1479,10 +1477,10 @@ class VideoTrackerApp:
         # Large Add Button
         frm_center = tk.Frame(self._empty_state_frame, bg=C["bg_root"])
         frm_center.pack(expand=True)
-        lbl = tk.Label(frm_center, text="No hay ninguna serie configurada.", bg=C["bg_root"], fg=C["fg_sub"], font=("Segoe UI", 12))
+        lbl = tk.Label(frm_center, text="No hay ninguna carpeta configurada.", bg=C["bg_root"], fg=C["fg_sub"], font=("Segoe UI", 12))
         lbl.pack(pady=(0, 20))
         
-        btn_add = tk.Label(frm_center, text=" + Añadir Serie / Carpeta ", bg=C["border_active"], fg="#fff", font=("Segoe UI", 12, "bold"), cursor="hand2", padx=20, pady=10)
+        btn_add = tk.Label(frm_center, text=" Seleccionar carpeta a traquear ", bg=C["border_active"], fg="#fff", font=("Segoe UI", 12, "bold"), cursor="hand2", padx=20, pady=10)
         btn_add.pack()
         
         def _add_first():
@@ -1551,7 +1549,7 @@ class VideoTrackerApp:
         tk.Label(hdr, text="Gestor de Trackers", font=("Segoe UI", 14, "bold"), bg=C["bg_header"], fg=C["fg_title"]).pack(side="left", pady=15, padx=10)
         
         # Add button (Prominent)
-        btn_add = tk.Label(self._fm_frame, text=" + Añadir nueva carpeta... ", bg=C["border_active"], fg="#ffffff", font=("Segoe UI", 10, "bold"), cursor="hand2", pady=8)
+        btn_add = tk.Label(self._fm_frame, text=" + Añadir carpeta a traquear ", bg=C["border_active"], fg="#ffffff", font=("Segoe UI", 10, "bold"), cursor="hand2", pady=8)
         btn_add.pack(fill="x", padx=40, pady=15)
         
         def add_new():
@@ -1634,10 +1632,9 @@ class VideoTrackerApp:
                 nueva_activa = self.settings.carpeta_activa
                 self.cambiar_carpeta_activa(nueva_activa)
                 
-            # Refresh manager view if open
+            # Refresh manager view if open instantly using after() to prevent event conflicts
             if hasattr(self, '_fm_frame') and self._fm_frame and self._fm_frame.winfo_exists():
-                self._toggle_folder_manager() # close
-                self._toggle_folder_manager() # open
+                self.root.after(10, lambda: [self._toggle_folder_manager(), self._toggle_folder_manager()])
 
     def _build_ui(self):
         self._build_header()
