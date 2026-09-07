@@ -2053,6 +2053,15 @@ class VideoTrackerApp:
         total    = len(self.videos)
         self.lbl_total.config(text=f"{total} videos")
         
+        # Check if empty state
+        if not self.directorio:
+            if hasattr(self, '_lbl_name') and hasattr(self, '_lbl_path'):
+                self._lbl_name.config(text="")
+                self._lbl_path.config(text="")
+            self.lbl_prog.config(text="")
+            self.lbl_badge.config(text="")
+            return
+            
         # Update header dynamically
         if hasattr(self, '_lbl_name') and hasattr(self, '_lbl_path'):
             import os
@@ -2064,6 +2073,7 @@ class VideoTrackerApp:
             self.lbl_prog.config(text="No se encontraron videos en esta carpeta")
             self.lbl_badge.config(text="")
             return
+            
         uv_idx = (self.videos.index(self.ultimo_visto)
                   if self.ultimo_visto in self.videos else -1)
         if uv_idx >= 0:
