@@ -826,9 +826,9 @@ class VentanaConfiguracion(tk.Toplevel):
         self._pending  = {"oscuro": {}, "claro": {}}  # per-theme pending color overrides
         self._swatches = {}                            # simple_key -> swatch Label widget
 
-        self._tema_v   = tk.StringVar(value=settings.tema)
-        self._fuente_v = tk.StringVar(value=settings.fuente_familia)
-        self._tamano_v = tk.IntVar(value=settings.fuente_tamano)
+        self._tema_v   = tk.StringVar(value=self._st.tema_actual)
+        self._fuente_v = tk.StringVar(value=self._st.fuente_familia)
+        self._tamano_v = tk.IntVar(value=self._st.fuente_tamano)
 
         self.title("Configuracion")
         self.resizable(False, False)
