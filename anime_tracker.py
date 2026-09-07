@@ -1447,12 +1447,19 @@ class VideoTrackerApp:
         self.root = root
 
         if getattr(sys, "frozen", False):
-            self.directorio = os.path.dirname(sys.executable)
+            self.app_dir = os.path.dirname(sys.executable)
         else:
-            self.directorio = os.path.dirname(os.path.abspath(__file__))
+            self.app_dir = os.path.dirname(os.path.abspath(__file__))
 
-        self.settings = Settings(self.directorio)
+        self.settings = Settings(self.app_dir)
         self.settings.apply_theme()
+        
+        # Migracion: si hay tracker en app_dir, anadirlo a carpetas
+        old_tracker = os.path.join(self.app_dir, ARCHIVO_REGISTRO)
+        if os.path.isfile(old_tracker) and self.app_dir not in self.settings.carpetas_seguidas:
+            self.settings.add_carpeta(self.app_dir)
+            
+        self.directorio = self.settings.carpeta_activa
         self._cfg_window()
 
         # State
@@ -1489,8 +1496,44 @@ class VideoTrackerApp:
 
         # Parar el watcher al cerrar la ventana
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+        self._empty_state_frame = None
+        
+        if not self.directorio:
+            self._show_empty_state()
 
-    # ── Window ───────────────────────────────────────────────────────────────
+    def cambiar_carpeta_activa(self, nueva_ruta):
+        import os
+        if not os.path.isdir(nueva_ruta):
+            return
+        self.settings.set_carpeta_activa(nueva_ruta)
+        self.directorio = nueva_ruta
+        self.ultimo_visto = self._load_progress()
+        self._refresh_videos()
+        if self._empty_state_frame:
+            self._empty_state_frame.pack_forget()
+        
+        # Reset views
+        for b in self._btns: b.destroy()
+        self._btns.clear()
+        if self._card_view: self._card_view.clear()
+        if self._mos_view: self._mos_view.clear()
+        
+        if self._vista_actual in ("tarjetas", "mosaicos"):
+            self._rebuild_cards()
+        self._update_ui()
+        if hasattr(self, '_watcher'):
+            self._watcher.update_videos(self.videos, self.directorio)
+        
+    def _show_empty_state(self):
+        import tkinter as tk
+        if self._empty_state_frame:
+            self._empty_state_frame.destroy()
+        self._empty_state_frame = tk.Frame(self.root, bg=C["bg_main"])
+        self._empty_state_frame.pack(fill="both", expand=True)
+        lbl = tk.Label(self._empty_state_frame, text="No hay carpetas activas.\n\nAbre Configuracion para anadir una serie.", bg=C["bg_main"], fg=C["fg_sub"], font=("Segoe UI", 12))
+        lbl.pack(expand=True)
+
+
     def _cfg_window(self):
         self.root.title(f"  {APP_TITLE}  v{APP_VERSION}")
         try:
