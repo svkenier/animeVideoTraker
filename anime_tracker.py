@@ -1681,13 +1681,24 @@ class VideoTrackerApp:
         return ""
 
     def _save_progress(self, name):
-        """Persiste el \u00faltimo cap\u00edtulo visto en disco de forma robusta.
-        Lee el JSON existente, actualiza solo la clave 'ultimo_visto',
-        y fuerza el vaciado al disco con fsync.
+        """Persiste el último capítulo visto en disco de forma robusta.
+
+        Pasos:
+        1. Quitar atributo HIDDEN antes de escribir (en Windows/OneDrive,
+           escribir sobre un archivo HIDDEN falla silenciosamente).
+        2. Leer JSON existente y actualizar solo 'ultimo_visto'.
+        3. Escribir con fsync para garantizar escritura fisica al disco.
+        4. Re-aplicar el atributo HIDDEN.
         """
         ruta = os.path.join(self.directorio, ARCHIVO_REGISTRO)
+        FILE_ATTRIBUTE_NORMAL = 0x80
+        FILE_ATTRIBUTE_HIDDEN = 0x02
         try:
-            # Leer datos existentes para no perder otras claves futuras
+            # Paso 1: quitar HIDDEN para poder escribir sin conflictos
+            if os.path.exists(ruta):
+                ctypes.windll.kernel32.SetFileAttributesW(str(ruta), FILE_ATTRIBUTE_NORMAL)
+
+            # Paso 2: leer datos existentes
             data = {}
             if os.path.exists(ruta):
                 try:
@@ -1696,13 +1707,15 @@ class VideoTrackerApp:
                 except Exception:
                     data = {}
             data["ultimo_visto"] = name
-            # Escribir con vaciado forzado al disco
+
+            # Paso 3: escribir con vaciado forzado al disco
             with open(ruta, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
                 f.flush()
-                os.fsync(f.fileno())  # garantiza escritura f\u00edsica antes de salir
-            # Marcar como oculto en Windows (no afecta la lectura)
-            ctypes.windll.kernel32.SetFileAttributesW(str(ruta), 2)
+                os.fsync(f.fileno())
+
+            # Paso 4: re-aplicar HIDDEN
+            ctypes.windll.kernel32.SetFileAttributesW(str(ruta), FILE_ATTRIBUTE_HIDDEN)
         except Exception:
             pass
 
