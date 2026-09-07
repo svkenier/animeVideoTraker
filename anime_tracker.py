@@ -428,7 +428,21 @@ class Settings:
         
         def is_valid(p):
             try:
-                if not os.path.isdir(p): return False
+                import sys, os
+                if not p or not isinstance(p, str) or not os.path.isdir(p): return False
+                
+                p_abs = os.path.abspath(p).lower()
+                cwd_abs = os.path.abspath(os.getcwd()).lower()
+                exe_dir = os.path.abspath(os.path.dirname(sys.executable)).lower()
+                script_dir = os.path.abspath(os.path.dirname(__file__)).lower()
+                
+                # Filter out exactly the root, dist, and executable folders
+                if p_abs in (cwd_abs, exe_dir, script_dir):
+                    return False
+                    
+                if os.path.basename(p_abs) == "dist":
+                    return False
+                    
                 return True
             except: return False
 
