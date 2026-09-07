@@ -1626,7 +1626,7 @@ class VideoTrackerApp:
         bf.pack(side="right")
         self._bf = bf
 
-        b1 = self._mkbtn(bf, "  Carpeta  ",   self._toggle_folder_manager)
+        b1 = self._mkbtn(bf, "  Series  ",   self._toggle_folder_manager)
         b2 = self._mkbtn(bf, "  Refrescar  ", self._on_refresh)
         b3 = self._mkbtn(bf, "\u2699 Config", self._open_config)
 
