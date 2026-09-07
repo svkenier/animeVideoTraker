@@ -1495,7 +1495,7 @@ class VideoTrackerApp:
         self._empty_state_frame.pack(fill="both", expand=True)
         # Large Add Button
         frm_center = tk.Frame(self._empty_state_frame, bg=C["bg_root"])
-        frm_center.pack(expand=True)
+        frm_center.place(relx=0.5, rely=0.5, anchor="center")
         lbl = tk.Label(frm_center, text="No hay ninguna carpeta configurada.", bg=C["bg_root"], fg=C["fg_sub"], font=("Segoe UI", 12))
         lbl.pack(pady=(0, 20))
         
