@@ -1625,7 +1625,7 @@ class VideoTrackerApp:
                 
             # Refresh manager view if open instantly using after() to prevent event conflicts
             if hasattr(self, '_fm_frame') and self._fm_frame and self._fm_frame.winfo_exists():
-                self.root.after(10, lambda: [self._toggle_folder_manager(), self._toggle_folder_manager()])
+                self._refresh_folder_manager_list()
 
     def _build_ui(self):
         self._build_header()
