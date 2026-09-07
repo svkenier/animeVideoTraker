@@ -1671,13 +1671,24 @@ class VideoTrackerApp:
             self._watcher.update_videos(self.videos, self.directorio)
 
     def _load_progress(self):
+        """Carga el ultimo capitulo visto desde disco.
+        Normaliza el atributo HIDDEN antes de leer para compatibilidad
+        con OneDrive y rutas sincronizadas donde os.path.exists puede fallar.
+        """
         ruta = os.path.join(self.directorio, ARCHIVO_REGISTRO)
-        if os.path.exists(ruta):
-            try:
-                with open(ruta, "r", encoding="utf-8") as f:
-                    return json.load(f).get("ultimo_visto", "")
-            except Exception:
-                pass
+        try:
+            # os.path.isfile es mas robusto que os.path.exists para HIDDEN
+            if not os.path.isfile(ruta):
+                return ""
+            # Quitar HIDDEN antes de leer
+            ctypes.windll.kernel32.SetFileAttributesW(str(ruta), 0x80)
+            with open(ruta, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            # Re-aplicar HIDDEN
+            ctypes.windll.kernel32.SetFileAttributesW(str(ruta), 0x02)
+            return data.get("ultimo_visto", "")
+        except Exception:
+            pass
         return ""
 
     def _save_progress(self, name):
