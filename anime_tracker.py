@@ -391,7 +391,16 @@ class Settings:
         self.save()
 
     def __init__(self, directory):
-        self._path = os.path.join(directory, ARCHIVO_SETTINGS)
+        import os
+        appdata = os.getenv('APPDATA')
+        if appdata:
+            config_dir = os.path.join(appdata, 'AnimeTracker')
+        else:
+            # Fallback in case APPDATA is somehow not available
+            config_dir = os.path.join(os.path.expanduser('~'), '.animetracker')
+            
+        os.makedirs(config_dir, exist_ok=True)
+        self._path = os.path.join(config_dir, ARCHIVO_SETTINGS)
         self.data  = dict(self.DEFAULTS)
         self._load()
 
