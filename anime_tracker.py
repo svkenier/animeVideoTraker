@@ -5,7 +5,7 @@
 #  Dependencias: solo stdlib Python (tkinter, ctypes, json, os, re, sys)
 # =============================================================================
 
-import os, re, json, sys, ctypes, base64, queue, threading, struct
+import os, re, json, sys, ctypes, base64, queue, threading, struct, time
 try:
     import cv2  # type: ignore
 except ImportError:
@@ -19,6 +19,8 @@ from tkinter import messagebox, colorchooser, ttk
 # ---------------------------------------------------------------------------
 APP_TITLE   = "Anime & Video Tracker"
 APP_VERSION = "2.3"
+
+SYNC_INTERVAL_S = 2.5   # segundos entre chequeos del watcher de ventanas
 
 EXTS_VALIDAS     = {".mp4",".mkv",".avi",".mov",".webm",".flv",".wmv",".m4v",".ts",".ogv"}
 ARCHIVO_REGISTRO = ".tracker.json"
@@ -1150,6 +1152,139 @@ class MosaicosView:
 
 #  MAIN APPLICATION
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+#  WINDOW WATCHER — Auto-Sync por título de ventana activa
+# ---------------------------------------------------------------------------
+
+# Patrones regex ordenados de mayor a menor especificidad
+_EP_PATTERNS = [
+    re.compile(r'[Ss]\d{1,2}[Ee](\d{1,3})'),           # S02E05
+    re.compile(r'[Ee]p(?:isode|isodio)?\.?\s*(\d{1,3})'), # Ep 12 / Episode 12
+    re.compile(r'[Cc]ap(?:\u00edtulo|itulo)?\.?\s*(\d{1,3})'), # Cap 7 / Cap\u00edtulo 07
+    re.compile(r'[-\u2013\u2014]\s*(\d{1,3})\s*[-\u2013\u2014\[]'),  # - 08 - / - 24 [
+    re.compile(r'[Ee](\d{2,3})\b'),                      # E042
+    re.compile(r'\b(\d{2,3})\b'),                        # \u00faltimo recurso: 2-3 d\u00edgitos
+]
+
+
+class WindowWatcher:
+    """Hilo daemon que monitorea el t\u00edtulo de la ventana en primer plano
+    y detecta qu\u00e9 video se est\u00e1 reproduciendo.
+    
+    Thread-safe: se comunica con Tkinter \u00fanicamente via queue.Queue.
+    Sin dependencias externas: usa ctypes puro (windll.user32).
+    """
+
+    _PLAYER_KEYWORDS = (
+        "vlc", "mpc", "potplayer", "kmplayer", "mpv",
+        "windows media", "media player", "gom player",
+        "daum", "smplayer", "bsplayer",
+    )
+
+    def __init__(self):
+        self._thread   = None
+        self._stop_evt = threading.Event()
+        self._videos   = []
+        self._dirpath  = ""
+        self._queue    = None
+
+    # ------------------------------------------------------------------ public
+    def start(self, videos: list, dirpath: str, out_queue: queue.Queue):
+        """Arranca (o reinicia) el hilo watcher con una lista nueva de videos."""
+        self._videos  = list(videos)
+        self._dirpath = dirpath
+        self._queue   = out_queue
+        if self._thread and self._thread.is_alive():
+            return  # ya corriendo; la lista se actualiz\u00f3 in-place
+        self._stop_evt.clear()
+        self._thread = threading.Thread(
+            target=self._run, daemon=True, name="WindowWatcher"
+        )
+        self._thread.start()
+
+    def update_videos(self, videos: list, dirpath: str):
+        """Actualiza la lista de videos sin reiniciar el hilo."""
+        self._videos  = list(videos)
+        self._dirpath = dirpath
+
+    def stop(self):
+        """Para el hilo de forma limpia."""
+        self._stop_evt.set()
+
+    # ----------------------------------------------------------------- private
+    def _run(self):
+        while not self._stop_evt.is_set():
+            try:
+                title = self._get_foreground_title()
+                if title:
+                    match = self._match_video(title)
+                    if match and self._queue is not None:
+                        self._queue.put(match)
+            except Exception:
+                pass  # jam\u00e1s dejar caer el hilo
+            self._stop_evt.wait(SYNC_INTERVAL_S)
+
+    def _get_foreground_title(self) -> str:
+        """Devuelve el t\u00edtulo de la ventana en primer plano via ctypes puro."""
+        try:
+            user32 = ctypes.windll.user32
+            hwnd   = user32.GetForegroundWindow()
+            if not hwnd:
+                return ""
+            length = user32.GetWindowTextLengthW(hwnd)
+            if length == 0:
+                return ""
+            buf = ctypes.create_unicode_buffer(length + 1)
+            user32.GetWindowTextW(hwnd, buf, length + 1)
+            return buf.value
+        except Exception:
+            return ""
+
+    def _match_video(self, win_title: str) -> str:
+        """Intenta encontrar un video de self._videos que coincida con el t\u00edtulo.
+        
+        Estrategia en cascada:
+        1. \u00bfEl t\u00edtulo contiene el nombre del archivo (sin ext)? -> match directo.
+        2. \u00bfEl t\u00edtulo parece un reproductor de video? + extraer n\u00fam. episodio
+           y buscar video con ese n\u00famero.
+        Devuelve el nombre del archivo (con extensi\u00f3n) o None.
+        """
+        title_lower = win_title.lower()
+
+        # 1. Coincidencia directa por nombre de archivo
+        for v in self._videos:
+            name_no_ext = os.path.splitext(v)[0].lower()
+            if len(name_no_ext) > 4 and name_no_ext in title_lower:
+                return v
+
+        # 2. \u00bfEs un reproductor conocido?
+        is_player = any(kw in title_lower for kw in self._PLAYER_KEYWORDS)
+        # tambi\u00e9n detectar por extensi\u00f3n de video en el t\u00edtulo
+        has_ext = any(ext in title_lower for ext in
+                      (".mkv", ".mp4", ".avi", ".mov", ".webm", ".flv"))
+        if not (is_player or has_ext):
+            return None
+
+        # Extraer n\u00famero de episodio del t\u00edtulo
+        ep_num = None
+        for pat in _EP_PATTERNS:
+            m = pat.search(win_title)
+            if m:
+                ep_num = int(m.group(1))
+                break
+        if ep_num is None:
+            return None
+
+        # Buscar video cuyo nombre contenga ese n\u00famero
+        ep_str_2 = f"{ep_num:02d}"
+        ep_str_3 = f"{ep_num:03d}"
+        for v in self._videos:
+            vl = v.lower()
+            if ep_str_3 in vl or ep_str_2 in vl:
+                return v
+        return None
+
+
 class VideoTrackerApp:
     POLL_MS = 1000
 
@@ -1190,6 +1325,15 @@ class VideoTrackerApp:
             self._rebuild_cards()
         self._update_ui()
         self._monitor()
+
+        # ── Auto-sync por título de ventana ──────────────────────────────────
+        self._sync_queue = queue.Queue()
+        self._watcher    = WindowWatcher()
+        self._watcher.start(self.videos, self.directorio, self._sync_queue)
+        self._poll_sync_queue()
+
+        # Parar el watcher al cerrar la ventana
+        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
     # ── Window ───────────────────────────────────────────────────────────────
     def _cfg_window(self):
@@ -1386,6 +1530,13 @@ class VideoTrackerApp:
         self.lbl_total = tk.Label(ft, text="",
             font=("Segoe UI", 8, "bold"), bg=C["bg_footer"], fg=C["fg_sub"])
         self.lbl_total.pack(side="right", padx=12)
+        # Indicador de auto-sync
+        self.lbl_sync = tk.Label(
+            ft, text="⬤ Sync",
+            font=("Segoe UI", 7), bg=C["bg_footer"], fg="#555555",
+            cursor="hand2")
+        self.lbl_sync.pack(side="right", padx=(0, 6))
+        Tooltip(self.lbl_sync, lambda e: "Auto-Sync: monitoreando reproductor activo")
 
     # ── Vista toggle ──────────────────────────────────────────────────────────
     def _on_cb_change(self, event=None):
@@ -1515,6 +1666,9 @@ class VideoTrackerApp:
              if os.path.splitext(f)[1].lower() in EXTS_VALIDAS],
             key=natural_sort_key
         )
+        # Notificar al watcher la nueva lista
+        if hasattr(self, '_watcher'):
+            self._watcher.update_videos(self.videos, self.directorio)
 
     def _load_progress(self):
         ruta = os.path.join(self.directorio, ARCHIVO_REGISTRO)
@@ -1585,7 +1739,7 @@ class VideoTrackerApp:
             self.lbl_prog.config(text=f"{total} videos encontrados")
         self.lbl_badge.config(text="")
 
-    # ── Monitor ───────────────────────────────────────────────────────────────
+    # ── Monitor (file-lock, respaldo) ─────────────────────────────────────────
     def _monitor(self):
         try:
             activo = None
@@ -1601,6 +1755,45 @@ class VideoTrackerApp:
         except Exception:
             pass
         self.root.after(self.POLL_MS, self._monitor)
+
+    # ── Auto-Sync por título de ventana ───────────────────────────────────────
+    def _poll_sync_queue(self):
+        """Revisa la cola del WindowWatcher cada 500ms desde el hilo principal.
+        Thread-safe: nunca toca Tkinter desde otro hilo."""
+        try:
+            # Vaciar todos los eventos acumulados, quedarse con el último
+            detected = None
+            while True:
+                detected = self._sync_queue.get_nowait()
+        except queue.Empty:
+            pass
+
+        if detected and detected != self.ultimo_visto:
+            self.ultimo_visto = detected
+            self._save_progress(detected)
+            self._update_ui()
+            # Indicador en footer: verde + nombre
+            short = truncar(detected, 38)
+            self.lbl_sync.config(fg="#4CAF50", text=f"⬤ {short}")
+            self.root.after(5000, self._reset_sync_label)
+        elif not detected:
+            # Apagar indicador si no hay actividad reciente
+            pass
+
+        self.root.after(500, self._poll_sync_queue)
+
+    def _reset_sync_label(self):
+        """Vuelve el indicador de sync a su estado en reposo."""
+        if hasattr(self, 'lbl_sync'):
+            self.lbl_sync.config(fg="#555555", text="⬤ Sync")
+
+    def _on_close(self):
+        """Cierre limpio: para el watcher antes de destruir la ventana."""
+        try:
+            self._watcher.stop()
+        except Exception:
+            pass
+        self.root.destroy()
 
     # ── Actions ───────────────────────────────────────────────────────────────
     def _play_file(self, filename):
