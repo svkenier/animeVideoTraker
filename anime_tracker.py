@@ -809,6 +809,20 @@ class VentanaConfiguracion(tk.Toplevel):
         self.grab_set()
         self.configure(bg=C["bg_header"])
 
+        try:
+            import sys
+            import os
+            base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+            icon_path = os.path.join(base_path, "gear.ico")
+            if os.path.exists(icon_path):
+                self.iconbitmap(icon_path)
+            else:
+                logo_path = os.path.join(base_path, "logo.ico")
+                if os.path.exists(logo_path):
+                    self.iconbitmap(logo_path)
+        except Exception:
+            pass
+
         self.update_idletasks()
         pw, ph = parent.winfo_width(), parent.winfo_height()
         px, py = parent.winfo_rootx(), parent.winfo_rooty()
