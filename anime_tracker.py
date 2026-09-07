@@ -376,11 +376,11 @@ class Settings:
         if ruta not in self.data.get("carpetas_seguidas", []):
             self.data.setdefault("carpetas_seguidas", []).append(ruta)
         self.data["carpeta_activa"] = ruta
-        self._save()
+        self.save()
         
     def set_carpeta_activa(self, ruta):
         self.data["carpeta_activa"] = ruta
-        self._save()
+        self.save()
         
     def remove_carpeta(self, ruta):
         carpetas = self.data.get("carpetas_seguidas", [])
@@ -388,7 +388,7 @@ class Settings:
             carpetas.remove(ruta)
         if self.data.get("carpeta_activa", "") == ruta:
             self.data["carpeta_activa"] = carpetas[0] if carpetas else ""
-        self._save()
+        self.save()
 
     def __init__(self, directory):
         self._path = os.path.join(directory, ARCHIVO_SETTINGS)
