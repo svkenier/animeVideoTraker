@@ -1507,7 +1507,7 @@ class VideoTrackerApp:
         if getattr(self, '_outer', None): self._outer.pack_forget()
         if self._empty_state_frame: self._empty_state_frame.pack_forget()
         
-        self._fm_frame = tk.Frame(self.root, bg=C["bg_main"])
+        self._fm_frame = tk.Frame(self.root, bg=C["bg_root"])
         self._fm_frame.pack(fill="both", expand=True)
         
         # Title and Top Bar
@@ -1536,7 +1536,7 @@ class VideoTrackerApp:
         btn_add.bind("<Button-1>", lambda e: add_new())
         
         # List frame
-        list_frm = tk.Frame(self._fm_frame, bg=C["bg_main"])
+        list_frm = tk.Frame(self._fm_frame, bg=C["bg_root"])
         list_frm.pack(fill="both", expand=True, padx=40, pady=10)
         
         carpetas = self.settings.carpetas_seguidas
