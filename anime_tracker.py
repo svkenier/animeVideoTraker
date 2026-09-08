@@ -1458,7 +1458,7 @@ class VideoTrackerApp:
         self.videos             = []
         self.ultimo_visto       = ""
         self._hover_idx         = -1
-        self._focus_index       = 0
+        self._focus_index       = -1
 
         # Async thumbnail cache
         self._thumb_cache = ThumbnailCache(self._on_thumb_ready)
@@ -1574,6 +1574,7 @@ class VideoTrackerApp:
         self.root.geometry(f"{w}x{h}+{(sw-w)//2}+{(sh-h)//2}")
         for k in ("<Up>", "<Down>", "<Left>", "<Right>", "<Return>"):
             self.root.bind(k, self._on_key_press)
+        self.root.bind("<Button-1>", self._on_global_click, add="+")
 
     # ── UI build ─────────────────────────────────────────────────────────────
 
@@ -1884,13 +1885,6 @@ class VideoTrackerApp:
         self.lbl_total = tk.Label(ft, text="",
             font=("Segoe UI", 8, "bold"), bg=C["bg_footer"], fg=C["fg_sub"])
         self.lbl_total.pack(side="right", padx=12)
-        # Indicador de auto-sync
-        self.lbl_sync = tk.Label(
-            ft, text="⬤ Sync",
-            font=("Segoe UI", 7), bg=C["bg_footer"], fg="#555555",
-            cursor="hand2")
-        self.lbl_sync.pack(side="right", padx=(0, 6))
-        Tooltip(self.lbl_sync, lambda e: "Auto-Sync: monitoreando reproductor activo")
 
     # ── Vista toggle ──────────────────────────────────────────────────────────
     def _on_cb_change(self, event=None):
@@ -2211,9 +2205,7 @@ class VideoTrackerApp:
             def refrescar_ui():
                 self._update_ui()
                 short = truncar(detected, 38)
-                self.lbl_sync.config(fg="#4CAF50", text=f"▶ {short}")
                 self.root.update_idletasks()
-                self.root.after(5000, self._reset_sync_label)
                 
             self.root.after(0, refrescar_ui)
         elif not detected:
@@ -2221,11 +2213,6 @@ class VideoTrackerApp:
             pass
 
         self.root.after(500, self._poll_sync_queue)
-
-    def _reset_sync_label(self):
-        """Vuelve el indicador de sync a su estado en reposo."""
-        if hasattr(self, 'lbl_sync'):
-            self.lbl_sync.config(fg="#555555", text="⬤ Sync")
 
     def _flush_sync_queue(self):
         """Fuerza el vaciado de la cola del watcher sin bloqueos."""
@@ -2289,6 +2276,21 @@ class VideoTrackerApp:
             os.startfile(self.directorio)
         except Exception:
             pass
+
+    def _on_global_click(self, event):
+        """Deselect focus (remove red border) when clicking outside video items."""
+        w = event.widget
+        # Walk up the widget tree to see if click landed on a video item
+        while w:
+            if getattr(w, "_is_video_item", False):
+                return  # clicked ON a video item — keep focus
+            if w is getattr(self, "listbox", None):
+                return  # clicked on listbox — keep focus
+            w = getattr(w, "master", None)
+        # Clicked outside — clear focus
+        if self._focus_index != -1:
+            self._focus_index = -1
+            self._apply_focus()
 
     def _on_key_press(self, event):
         if not self.videos: return
@@ -2411,6 +2413,19 @@ class VideoTrackerApp:
         self._ft.configure(bg=C["bg_footer"])
         self.lbl_status.configure(bg=C["bg_footer"], fg=C["fg_sub"])
         self.lbl_total.configure(bg=C["bg_footer"], fg=C["fg_sub"])
+
+        # Propagate theme to view-selector button container
+        try:
+            for w in (self._btn_v_list, self._btn_v_mos, self._btn_v_tarj):
+                current = w.cget("bg")
+                if current != C["border_active"]:  # don\'t repaint active btn
+                    w.configure(bg=C["bg_btn"], fg=C["fg_btn"])
+        except Exception:
+            pass
+
+        # Rebuild empty state frame with new theme colors if visible
+        if getattr(self, "_empty_state_frame", None) and self._empty_state_frame.winfo_exists():
+            self._show_empty_state()
 
         if self._mos_view: self._mos_view.apply_theme()
 
