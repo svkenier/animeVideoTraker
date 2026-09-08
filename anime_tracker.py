@@ -780,6 +780,7 @@ class CardView:
             height=self.CARD_H,
         )
         frm.pack_propagate(False)   # keep fixed width/height
+        frm._is_video_item = True
 
         # ── Thumbnail canvas (renders immediately with placeholder) ──────────
         tcv = tk.Canvas(
@@ -1062,6 +1063,30 @@ class VentanaConfiguracion(tk.Toplevel):
         # Reload swatches for the newly selected theme (preserves its profile)
         self._reload_swatches(nuevo)
         self._apply()
+        # Also refresh this config window's own colors instantly
+        self._refresh_self_theme()
+
+    def _refresh_self_theme(self):
+        """Repaint the config window itself to match the new theme."""
+        bg = C["bg_header"]
+        try:
+            self.configure(bg=bg)
+            def _walk(w):
+                try:
+                    if isinstance(w, (tk.Label, tk.Frame)):
+                        kw = {}
+                        if "bg" in w.keys(): kw["bg"] = bg
+                        if kw: w.configure(**kw)
+                    elif isinstance(w, tk.Radiobutton):
+                        w.configure(bg=bg, fg=C["fg_normal"], selectcolor=C["bg_btn"],
+                                    activebackground=bg, activeforeground=C["fg_title"])
+                except Exception:
+                    pass
+                for child in w.winfo_children():
+                    _walk(child)
+            _walk(self)
+        except Exception:
+            pass
 
     def _save(self):
         self._st.tema = self._tema_v.get()
@@ -2096,6 +2121,16 @@ class VideoTrackerApp:
 
     # ── Render ────────────────────────────────────────────────────────────────
     def _update_ui(self):
+        # Automatically hide empty state if we have a folder and videos
+        if getattr(self, "_empty_state_frame", None):
+            try:
+                if self._empty_state_frame.winfo_exists():
+                    if self.directorio and self.videos:
+                        self._empty_state_frame.place_forget()
+                        self._empty_state_frame.pack_forget()
+            except Exception:
+                pass
+
         if self._vista_actual == "tarjetas":
             self._card_view.update_states(self.ultimo_visto)
         elif self._vista_actual == "mosaicos":
