@@ -2031,12 +2031,15 @@ class VideoTrackerApp:
         FILE_ATTRIBUTE_HIDDEN = 0x02
         try:
             # Paso 1: quitar HIDDEN para poder escribir sin conflictos
-            if os.path.exists(ruta):
+            # Siempre intentar quitarlo porque os.path.exists falla en HIDDEN con OneDrive
+            try:
                 ctypes.windll.kernel32.SetFileAttributesW(str(ruta), FILE_ATTRIBUTE_NORMAL)
+            except Exception:
+                pass
 
             # Paso 2: leer datos existentes
             data = {}
-            if os.path.exists(ruta):
+            if os.path.isfile(ruta):
                 try:
                     with open(ruta, "r", encoding="utf-8") as f:
                         data = json.load(f)
