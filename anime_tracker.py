@@ -20,7 +20,7 @@ from tkinter import messagebox, colorchooser, ttk
 APP_TITLE   = "Anime & Video Tracker"
 APP_VERSION = "2.3"
 
-SYNC_INTERVAL_S = 2.5   # segundos entre chequeos del watcher de ventanas
+SYNC_INTERVAL_S = 2.0   # segundos entre chequeos del watcher de ventanas
 
 EXTS_VALIDAS     = {".mp4",".mkv",".avi",".mov",".webm",".flv",".wmv",".m4v",".ts",".ogv"}
 ARCHIVO_REGISTRO = ".tracker.json"
@@ -1990,6 +1990,7 @@ class VideoTrackerApp:
         Normaliza el atributo HIDDEN antes de leer para compatibilidad
         con OneDrive y rutas sincronizadas donde os.path.exists puede fallar.
         """
+        import os, json, ctypes
         if not self.directorio: return ""
         ruta = os.path.join(self.directorio, ARCHIVO_REGISTRO)
         try:
@@ -1997,19 +1998,15 @@ class VideoTrackerApp:
             if not os.path.isfile(ruta):
                 data = {"ultimo_visto": ""}
                 with open(ruta, "w", encoding="utf-8") as f:
-                    import json, os
                     json.dump(data, f, ensure_ascii=False)
                     f.flush()
                     os.fsync(f.fileno())
-                import ctypes
                 ctypes.windll.kernel32.SetFileAttributesW(str(ruta), 0x02)
                 return ""
                 
             # Quitar HIDDEN antes de leer
-            import ctypes
             ctypes.windll.kernel32.SetFileAttributesW(str(ruta), 0x80)
             with open(ruta, "r", encoding="utf-8") as f:
-                import json
                 data = json.load(f)
             # Re-aplicar HIDDEN
             ctypes.windll.kernel32.SetFileAttributesW(str(ruta), 0x02)
@@ -2181,37 +2178,50 @@ class VideoTrackerApp:
         if hasattr(self, 'lbl_sync'):
             self.lbl_sync.config(fg="#555555", text="⬤ Sync")
 
-    def _on_close(self):
-        """Cierre limpio: vaciar la cola de sync, guardar progreso y parar el watcher.
+    def _flush_sync_queue(self):
+        """Fuerza una lectura síncrona final y el vaciado de la cola del watcher."""
+        if not getattr(self, 'directorio', None):
+            return
+            
+        import queue
+        ultimo_detectado = None
         
-        IMPORTANT: Debemos drenar la cola y guardar ANTES de destroy(),
-        porque destroy() cancela todos los root.after() pendientes y el
-        \u00faltimo episodio detectado se perder\u00eda sin este flush.
-        """
-        # 1. Drenar la cola del watcher para capturar el \u00faltimo episodio detectado
-        try:
-            ultimo_detectado = None
-            while True:
-                ultimo_detectado = self._sync_queue.get_nowait()
-        except queue.Empty:
-            pass
+        # 1. Hacer una ultima lectura forzosa SÍNCRONA
+        if hasattr(self, '_watcher'):
+            title = self._watcher._get_foreground_title()
+            if title:
+                match = self._watcher._match_video(title)
+                if match:
+                    ultimo_detectado = match
 
-        # 2. Si hay un episodio nuevo detectado que a\u00fan no se guard\u00f3, guardarlo ahora
-        if ultimo_detectado and ultimo_detectado != self.ultimo_visto:
+        # 2. Drenar la cola
+        if hasattr(self, '_sync_queue'):
+            try:
+                while True:
+                    ultimo_detectado = self._sync_queue.get_nowait()
+            except queue.Empty:
+                pass
+
+        if ultimo_detectado and ultimo_detectado != getattr(self, 'ultimo_visto', ""):
             self.ultimo_visto = ultimo_detectado
             self._save_progress(ultimo_detectado)
-        elif self.ultimo_visto:
-            # Guardar el estado actual por si el fsync anterior no se ejecut\u00f3
+        elif getattr(self, 'ultimo_visto', ""):
             self._save_progress(self.ultimo_visto)
 
-        # 3. Parar el hilo daemon
+    def _on_close(self):
+        """Cierre limpio: lectura forzosa de emergencia, guardar progreso y parar el watcher."""
+        self._flush_sync_queue()
+
+        # Parar el hilo daemon
         try:
-            self._watcher.stop()
+            if hasattr(self, '_watcher'):
+                self._watcher.stop()
         except Exception:
             pass
 
-        # 4. Destruir la ventana
+        # Destruir la ventana
         self.root.destroy()
+
 
     # ── Actions ───────────────────────────────────────────────────────────────
     def _play_file(self, filename):
