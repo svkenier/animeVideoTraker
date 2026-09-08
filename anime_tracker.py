@@ -1475,6 +1475,8 @@ class VideoTrackerApp:
         self._refresh_videos()
         if self._empty_state_frame:
             self._empty_state_frame.pack_forget()
+        if hasattr(self, '_outer') and self._outer:
+            self._outer.pack(fill="both", expand=True)
         
         # Reset views
         if self._card_view: self._card_view.clear()
@@ -1581,21 +1583,26 @@ class VideoTrackerApp:
         btn_add.bind("<Button-1>", lambda e: add_new())
         
         # List frame
-        list_frm = tk.Frame(self._fm_frame, bg=C["bg_root"])
-        list_frm.pack(fill="both", expand=True, padx=40, pady=10)
+        self.folder_list_frame = tk.Frame(self._fm_frame, bg=C["bg_root"])
+        self.folder_list_frame.pack(fill="both", expand=True, padx=40, pady=10)
+        self._draw_folder_list()
         
+    def _draw_folder_list(self):
+        for w in self.folder_list_frame.winfo_children():
+            w.destroy()
+            
         carpetas = self.settings.carpetas_seguidas
         activa = self.settings.carpeta_activa
         
         if not carpetas:
-            tk.Label(list_frm, text="No sigues ninguna carpeta aún.", bg=C["bg_root"], fg=C["fg_sub"], font=("Segoe UI", 10)).pack(pady=20)
+            tk.Label(self.folder_list_frame, text="No sigues ninguna carpeta aún.", bg=C["bg_root"], fg=C["fg_sub"], font=("Segoe UI", 10)).pack(pady=20)
         else:
             for c in carpetas:
                 is_active = (c == activa)
                 bg_row = C["bg_card_hover"] if is_active else C["bg_card"]
                 fg_row = C["fg_title"] if is_active else C["fg_normal"]
                 
-                row = tk.Frame(list_frm, bg=bg_row, bd=1, relief="solid", cursor="hand2")
+                row = tk.Frame(self.folder_list_frame, bg=bg_row, bd=1, relief="solid", cursor="hand2")
                 row.pack(fill="x", pady=2)
                 
                 lbl = tk.Label(row, text=c, bg=bg_row, fg=fg_row, font=("Segoe UI", 9), cursor="hand2")
@@ -1629,8 +1636,7 @@ class VideoTrackerApp:
                 if not is_active:
                     make_btn(row, "Activar", C["border_active"], lambda p=c: self._activate_folder_from_manager(p))
                 else:
-                    lbl = tk.Label(row, text="ACTIVA", bg=bg_row, fg=C["border_active"], font=("Segoe UI", 8, "bold"))
-                    lbl.pack(side="right", padx=5, pady=6)
+                    tk.Label(row, text=" (Activo) ", bg=C["border_active"], fg="#fff", font=("Segoe UI", 8, "bold")).pack(side="left", padx=10)
 
     def _activate_folder_from_manager(self, ruta):
         self.settings.set_carpeta_activa(ruta)
