@@ -1319,6 +1319,11 @@ class WindowWatcher:
         self._videos  = list(videos)
         self._dirpath = dirpath
         self._queue   = out_queue
+        if self._thread and self._thread.is_alive():
+            return
+        self._stop_evt.clear()
+        self._thread = threading.Thread(target=self._run, daemon=True, name="WindowWatcher")
+        self._thread.start()
         
     def update_context(self, videos: list, dirpath: str):
         self._videos = list(videos)
@@ -1352,31 +1357,6 @@ class WindowWatcher:
                 if title:
                     match = self._match_video(title)
                     if match:
-                        # 1. Escritura directa síncrona en el hilo para persistencia ultra rápida
-                        tr_path = os.path.join(self._dirpath, ARCHIVO_REGISTRO)
-                        try:
-                            try: ctypes.windll.kernel32.SetFileAttributesW(str(tr_path), 0x80)
-                            except: pass
-                            
-                            data = {}
-                            if os.path.isfile(tr_path):
-                                try:
-                                    with open(tr_path, "r", encoding="utf-8") as f:
-                                        data = json.load(f)
-                                except: pass
-                            
-                            if data.get("ultimo_visto") != match:
-                                data["ultimo_visto"] = match
-                                with open(tr_path, "w", encoding="utf-8") as f:
-                                    json.dump(data, f, ensure_ascii=False, indent=2)
-                                    f.flush()
-                                    os.fsync(f.fileno())
-                                    
-                            try: ctypes.windll.kernel32.SetFileAttributesW(str(tr_path), 0x02)
-                            except: pass
-                        except Exception:
-                            pass
-                            
                         # 2. Enviar a la cola para que la UI se entere y cambie colores
                         if self._queue is not None:
                             self._queue.put(match)
