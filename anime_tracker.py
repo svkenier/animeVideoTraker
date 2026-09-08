@@ -20,7 +20,7 @@ from tkinter import messagebox, colorchooser, ttk
 APP_TITLE   = "Anime & Video Tracker"
 APP_VERSION = "2.3"
 
-SYNC_INTERVAL_S = 2.0   # segundos entre chequeos del watcher de ventanas
+SYNC_INTERVAL_S = 0.5   # segundos entre chequeos del watcher de ventanas
 
 EXTS_VALIDAS     = {".mp4",".mkv",".avi",".mov",".webm",".flv",".wmv",".m4v",".ts",".ogv"}
 ARCHIVO_REGISTRO = ".tracker.json"
