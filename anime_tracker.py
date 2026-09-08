@@ -1515,7 +1515,6 @@ class VideoTrackerApp:
         self.settings.set_carpeta_activa(nueva_ruta)
         self.directorio = nueva_ruta
         self.ultimo_visto = self._load_progress()
-        self.root.bind("<Button-1>", self._on_global_click, add="+")
         self._refresh_videos()
         if self._empty_state_frame:
             self._empty_state_frame.pack_forget()
@@ -2282,6 +2281,19 @@ class VideoTrackerApp:
         except Exception:
             pass
 
+    def _on_global_click(self, event):
+        w = event.widget
+        while w:
+            if getattr(w, '_is_video_item', False): return
+            if w == getattr(self, 'listbox', None): return
+            if "scroll" in str(w).lower() or "sb" in str(w).lower(): return
+            if w == getattr(self, '_btn_v_list', None) or w == getattr(self, '_btn_v_mos', None) or w == getattr(self, '_btn_v_tarj', None): return
+            w = w.master if hasattr(w, 'master') else None
+        
+        if self._focus_index != -1:
+            self._focus_index = -1
+            self._apply_focus()
+
     def _on_key_press(self, event):
         if not self.videos: return
         k = event.keysym
@@ -2346,7 +2358,6 @@ class VideoTrackerApp:
         VentanaConfiguracion(self.root, self)
 
     def _on_refresh(self):
-        self.root.bind("<Button-1>", self._on_global_click, add="+")
         self._refresh_videos()
         if self._vista_actual in ("tarjetas", "mosaicos"):
             self._rebuild_cards()
