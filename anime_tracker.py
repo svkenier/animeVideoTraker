@@ -1082,11 +1082,17 @@ class VentanaConfiguracion(tk.Toplevel):
                     if cls == "Frame":
                         w.configure(bg=bg)
                     elif cls == "Label":
-                        # Accent separator frames are tk.Frame, not Label — safe to repaint
-                        cur_bg = w.cget("bg")
-                        # Keep the red accent bar and red buttons as-is
-                        if cur_bg not in (C["border_active"], "#DC143C"):
-                            w.configure(bg=bg, fg=fg_title)
+                        txt = w.cget("text")
+                        if "      " in txt:
+                            pass
+                        elif "Elegir" in txt:
+                            w.configure(bg=C["bg_btn"], fg=C["fg_btn"])
+                        else:
+                            # Accent separator frames are tk.Frame, not Label — safe to repaint
+                            cur_bg = w.cget("bg")
+                            # Keep the red accent bar and red buttons as-is
+                            if cur_bg not in (C["border_active"], "#DC143C"):
+                                w.configure(bg=bg, fg=fg_title)
                     elif cls == "Radiobutton":
                         w.configure(bg=bg, fg=fg_normal, selectcolor=C["bg_btn"],
                                     activebackground=bg, activeforeground=fg_title)
@@ -1584,6 +1590,10 @@ class VideoTrackerApp:
                 try: self._empty_state_frame.place_forget()
                 except Exception: pass
             return
+            
+        if getattr(self, '_outer', None):
+            self._outer.pack_forget()
+            
         if self._empty_state_frame:
             self._empty_state_frame.destroy()
         self._empty_state_frame = tk.Frame(self.root, bg=C["bg_root"])
@@ -2493,6 +2503,12 @@ class VideoTrackerApp:
         # Rebuild empty state frame with new theme colors if visible
         if getattr(self, "_empty_state_frame", None) and self._empty_state_frame.winfo_exists():
             self._show_empty_state()
+
+        # Repaint folder manager by recreating it if it's currently open
+        if getattr(self, "_fm_frame", None) and self._fm_frame and self._fm_frame.winfo_exists():
+            self._fm_frame.destroy()
+            self._fm_frame = None
+            self._toggle_folder_manager()
 
         if self._mos_view: self._mos_view.apply_theme()
 
