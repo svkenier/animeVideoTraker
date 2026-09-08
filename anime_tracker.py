@@ -405,6 +405,7 @@ class Settings:
         carpetas = self.data.get("carpetas_seguidas", [])
         if ruta in carpetas:
             carpetas.remove(ruta)
+        self.data["carpetas_seguidas"] = carpetas
         if self.data.get("carpeta_activa", "") == ruta:
             self.data["carpeta_activa"] = carpetas[0] if carpetas else ""
         self.save()
@@ -1384,15 +1385,10 @@ class WindowWatcher:
             self._stop_evt.wait(SYNC_INTERVAL_S)
 
     def _get_player_title(self) -> str:
-        """Busca procesos de reproductores y devuelve el título de su ventana activa, sin importar si está en primer plano."""
+        """Escanea todas las ventanas visibles buscando un título que coincida con _match_video."""
         try:
             import ctypes
-            import os
             user32 = ctypes.windll.user32
-            kernel32 = ctypes.windll.kernel32
-            
-            player_exes = ["vlc.exe", "mpc-hc64.exe", "mpc-hc.exe", "mpc-be64.exe", "mpc-be.exe", 
-                           "potplayerminimi64.exe", "potplayer64.exe", "wmplayer.exe", "mpv.exe", "smplayer.exe"]
             
             found_title = ""
             
@@ -1401,28 +1397,17 @@ class WindowWatcher:
                 try:
                     if not user32.IsWindowVisible(hwnd):
                         return True
-                        
-                    pid = ctypes.c_ulong()
-                    user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
                     
-                    hProcess = kernel32.OpenProcess(0x1000, False, pid)
-                    if hProcess:
-                        exe_name_buf = ctypes.create_unicode_buffer(260)
-                        size = ctypes.c_ulong(260)
-                        if kernel32.QueryFullProcessImageNameW(hProcess, 0, exe_name_buf, ctypes.byref(size)):
-                            exe_path = exe_name_buf.value.lower()
-                            exe_name = os.path.basename(exe_path)
-                            
-                            if exe_name in player_exes:
-                                length = user32.GetWindowTextLengthW(hwnd)
-                                if length > 0:
-                                    buf = ctypes.create_unicode_buffer(length + 1)
-                                    user32.GetWindowTextW(hwnd, buf, length + 1)
-                                    if buf.value:
-                                        found_title = buf.value
-                                        kernel32.CloseHandle(hProcess)
-                                        return False
-                        kernel32.CloseHandle(hProcess)
+                    length = user32.GetWindowTextLengthW(hwnd)
+                    if length > 0:
+                        buf = ctypes.create_unicode_buffer(length + 1)
+                        user32.GetWindowTextW(hwnd, buf, length + 1)
+                        if buf.value:
+                            title = buf.value
+                            # If it matches our universal video regex/filename, we found it!
+                            if self._match_video(title):
+                                found_title = title
+                                return False # Stop searching
                 except Exception:
                     pass
                 return True
@@ -1430,14 +1415,6 @@ class WindowWatcher:
             EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
             user32.EnumWindows(EnumWindowsProc(enum_windows_proc), 0)
             return found_title
-        except Exception:
-            return ""
-            length = user32.GetWindowTextLengthW(hwnd)
-            if length == 0:
-                return ""
-            buf = ctypes.create_unicode_buffer(length + 1)
-            user32.GetWindowTextW(hwnd, buf, length + 1)
-            return buf.value
         except Exception:
             return ""
 
