@@ -2181,22 +2181,26 @@ class VideoTrackerApp:
     def _poll_sync_queue(self):
         """Revisa la cola del WindowWatcher cada 500ms desde el hilo principal.
         Thread-safe: nunca toca Tkinter desde otro hilo."""
+        import queue
         try:
-            # Vaciar todos los eventos acumulados, quedarse con el último
             detected = None
             while True:
                 detected = self._sync_queue.get_nowait()
         except queue.Empty:
             pass
 
-        if detected and detected != self.ultimo_visto:
+        if detected and detected != getattr(self, 'ultimo_visto', ''):
             self.ultimo_visto = detected
             self._save_progress(detected)
-            self._update_ui()
-            # Indicador en footer: verde + nombre
-            short = truncar(detected, 38)
-            self.lbl_sync.config(fg="#4CAF50", text=f"⬤ {short}")
-            self.root.after(5000, self._reset_sync_label)
+            
+            def refrescar_ui():
+                self._update_ui()
+                short = truncar(detected, 38)
+                self.lbl_sync.config(fg="#4CAF50", text=f"▶ {short}")
+                self.root.update_idletasks()
+                self.root.after(5000, self._reset_sync_label)
+                
+            self.root.after(0, refrescar_ui)
         elif not detected:
             # Apagar indicador si no hay actividad reciente
             pass
