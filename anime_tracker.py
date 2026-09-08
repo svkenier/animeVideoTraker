@@ -2229,22 +2229,13 @@ class VideoTrackerApp:
             self.lbl_sync.config(fg="#555555", text="⬤ Sync")
 
     def _flush_sync_queue(self):
-        """Fuerza una lectura síncrona final y el vaciado de la cola del watcher."""
+        """Fuerza el vaciado de la cola del watcher sin bloqueos."""
         if not getattr(self, 'directorio', None):
             return
             
         import queue
         ultimo_detectado = None
         
-        # 1. Hacer una ultima lectura forzosa SÍNCRONA
-        if hasattr(self, '_watcher'):
-            title = self._watcher._get_foreground_title()
-            if title:
-                match = self._watcher._match_video(title)
-                if match:
-                    ultimo_detectado = match
-
-        # 2. Drenar la cola
         if hasattr(self, '_sync_queue'):
             try:
                 while True:
