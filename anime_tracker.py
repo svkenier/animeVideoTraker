@@ -1347,7 +1347,7 @@ class WindowWatcher:
                 self._stop_evt.wait(SYNC_INTERVAL_S)
                 continue
             try:
-                title = self._get_foreground_title()
+                title = self._get_player_title()
                 if title:
                     match = self._match_video(title)
                     if match:
@@ -1383,14 +1383,52 @@ class WindowWatcher:
                 pass  # jamás dejar caer el hilo
             self._stop_evt.wait(SYNC_INTERVAL_S)
 
-    def _get_foreground_title(self) -> str:
-        """Devuelve el título de la ventana en primer plano via ctypes puro."""
+    def _get_player_title(self) -> str:
+        """Busca procesos de reproductores y devuelve el título de su ventana activa, sin importar si está en primer plano."""
         try:
             import ctypes
+            import os
             user32 = ctypes.windll.user32
-            hwnd   = user32.GetForegroundWindow()
-            if not hwnd:
-                return ""
+            kernel32 = ctypes.windll.kernel32
+            
+            player_exes = ["vlc.exe", "mpc-hc64.exe", "mpc-hc.exe", "mpc-be64.exe", "mpc-be.exe", 
+                           "potplayerminimi64.exe", "potplayer64.exe", "wmplayer.exe", "mpv.exe", "smplayer.exe"]
+            
+            found_title = ""
+            
+            def enum_windows_proc(hwnd, lParam):
+                nonlocal found_title
+                if not user32.IsWindowVisible(hwnd):
+                    return True
+                    
+                pid = ctypes.c_ulong()
+                user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+                
+                hProcess = kernel32.OpenProcess(0x1000, False, pid)
+                if hProcess:
+                    exe_name_buf = ctypes.create_unicode_buffer(260)
+                    size = ctypes.c_ulong(260)
+                    if kernel32.QueryFullProcessImageNameW(hProcess, 0, exe_name_buf, ctypes.byref(size)):
+                        exe_path = exe_name_buf.value.lower()
+                        exe_name = os.path.basename(exe_path)
+                        
+                        if exe_name in player_exes:
+                            length = user32.GetWindowTextLengthW(hwnd)
+                            if length > 0:
+                                buf = ctypes.create_unicode_buffer(length + 1)
+                                user32.GetWindowTextW(hwnd, buf, length + 1)
+                                if buf.value:
+                                    found_title = buf.value
+                                    kernel32.CloseHandle(hProcess)
+                                    return False
+                    kernel32.CloseHandle(hProcess)
+                return True
+
+            EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+            user32.EnumWindows(EnumWindowsProc(enum_windows_proc), 0)
+            return found_title
+        except Exception:
+            return ""
             length = user32.GetWindowTextLengthW(hwnd)
             if length == 0:
                 return ""
