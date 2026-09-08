@@ -385,6 +385,18 @@ class Settings:
         self.data["carpeta_activa"] = ruta
         self.save()
         
+        import os, ctypes, json
+        tr_path = os.path.join(ruta, ARCHIVO_REGISTRO)
+        if not os.path.isfile(tr_path):
+            try:
+                with open(tr_path, "w", encoding="utf-8") as f:
+                    json.dump({"ultimo_visto": ""}, f, ensure_ascii=False)
+                    f.flush()
+                    os.fsync(f.fileno())
+                ctypes.windll.kernel32.SetFileAttributesW(str(tr_path), 0x02)
+            except Exception:
+                pass
+        
     def set_carpeta_activa(self, ruta):
         self.data["carpeta_activa"] = ruta
         self.save()
@@ -396,6 +408,15 @@ class Settings:
         if self.data.get("carpeta_activa", "") == ruta:
             self.data["carpeta_activa"] = carpetas[0] if carpetas else ""
         self.save()
+        
+        import os, ctypes
+        tr_path = os.path.join(ruta, ARCHIVO_REGISTRO)
+        try:
+            ctypes.windll.kernel32.SetFileAttributesW(str(tr_path), 0x80)
+            if os.path.isfile(tr_path):
+                os.remove(tr_path)
+        except Exception:
+            pass
 
     def __init__(self, directory):
         import os
@@ -1277,18 +1298,12 @@ _EP_PATTERNS = [
 
 
 class WindowWatcher:
-    """Hilo daemon que monitorea el t\u00edtulo de la ventana en primer plano
-    y detecta qu\u00e9 video se est\u00e1 reproduciendo.
+    """Hilo daemon que monitorea el título de la ventana en primer plano
+    y detecta qué video se está reproduciendo.
     
-    Thread-safe: se comunica con Tkinter \u00fanicamente via queue.Queue.
+    Thread-safe: se comunica con Tkinter únicamente via queue.Queue.
     Sin dependencias externas: usa ctypes puro (windll.user32).
     """
-
-    _PLAYER_KEYWORDS = (
-        "vlc", "mpc", "potplayer", "kmplayer", "mpv",
-        "windows media", "media player", "gom player",
-        "daum", "smplayer", "bsplayer",
-    )
 
     def __init__(self):
         self._thread   = None
@@ -1302,13 +1317,13 @@ class WindowWatcher:
         """Arranca (o reinicia) el hilo watcher con una lista nueva de videos."""
         self._videos  = list(videos)
         self._dirpath = dirpath
+        self._queue   = out_queue
         
     def update_context(self, videos: list, dirpath: str):
         self._videos = list(videos)
         self._dirpath = dirpath
-        self._queue   = out_queue
         if self._thread and self._thread.is_alive():
-            return  # ya corriendo; la lista se actualiz\u00f3 in-place
+            return  # ya corriendo; la lista se actualizó in-place
         self._stop_evt.clear()
         self._thread = threading.Thread(
             target=self._run, daemon=True, name="WindowWatcher"
@@ -1326,6 +1341,7 @@ class WindowWatcher:
 
     # ----------------------------------------------------------------- private
     def _run(self):
+        import os, json, ctypes
         while not self._stop_evt.is_set():
             if not self._videos or not self._dirpath:
                 self._stop_evt.wait(SYNC_INTERVAL_S)
@@ -1334,15 +1350,43 @@ class WindowWatcher:
                 title = self._get_foreground_title()
                 if title:
                     match = self._match_video(title)
-                    if match and self._queue is not None:
-                        self._queue.put(match)
+                    if match:
+                        # 1. Escritura directa síncrona en el hilo para persistencia ultra rápida
+                        tr_path = os.path.join(self._dirpath, ARCHIVO_REGISTRO)
+                        try:
+                            try: ctypes.windll.kernel32.SetFileAttributesW(str(tr_path), 0x80)
+                            except: pass
+                            
+                            data = {}
+                            if os.path.isfile(tr_path):
+                                try:
+                                    with open(tr_path, "r", encoding="utf-8") as f:
+                                        data = json.load(f)
+                                except: pass
+                            
+                            if data.get("ultimo_visto") != match:
+                                data["ultimo_visto"] = match
+                                with open(tr_path, "w", encoding="utf-8") as f:
+                                    json.dump(data, f, ensure_ascii=False, indent=2)
+                                    f.flush()
+                                    os.fsync(f.fileno())
+                                    
+                            try: ctypes.windll.kernel32.SetFileAttributesW(str(tr_path), 0x02)
+                            except: pass
+                        except Exception:
+                            pass
+                            
+                        # 2. Enviar a la cola para que la UI se entere y cambie colores
+                        if self._queue is not None:
+                            self._queue.put(match)
             except Exception:
-                pass  # jam\u00e1s dejar caer el hilo
+                pass  # jamás dejar caer el hilo
             self._stop_evt.wait(SYNC_INTERVAL_S)
 
     def _get_foreground_title(self) -> str:
-        """Devuelve el t\u00edtulo de la ventana en primer plano via ctypes puro."""
+        """Devuelve el título de la ventana en primer plano via ctypes puro."""
         try:
+            import ctypes
             user32 = ctypes.windll.user32
             hwnd   = user32.GetForegroundWindow()
             if not hwnd:
@@ -1357,33 +1401,18 @@ class WindowWatcher:
             return ""
 
     def _match_video(self, win_title: str) -> str:
-        """Intenta encontrar un video de self._videos que coincida con el t\u00edtulo.
-        
-        Estrategia en cascada:
-        1. \u00bfEl t\u00edtulo contiene el nombre del archivo (sin ext)? -> match directo.
-        2. \u00bfEl t\u00edtulo parece un reproductor de video? + extraer n\u00fam. episodio
-           y buscar video con ese n\u00famero.
-        Devuelve el nombre del archivo (con extensi\u00f3n) o None.
-        """
+        import re
         title_lower = win_title.lower()
 
-        # 1. Coincidencia directa por nombre de archivo
         for v in self._videos:
             name_no_ext = os.path.splitext(v)[0].lower()
             if len(name_no_ext) > 4 and name_no_ext in title_lower:
                 return v
 
-        # 2. \u00bfEs un reproductor conocido?
-        is_player = any(kw in title_lower for kw in self._PLAYER_KEYWORDS)
-        # tambi\u00e9n detectar por extensi\u00f3n de video en el t\u00edtulo
-        has_ext = any(ext in title_lower for ext in
-                      (".mkv", ".mp4", ".avi", ".mov", ".webm", ".flv"))
-        if not (is_player or has_ext):
-            return None
-
-        # Extraer n\u00famero de episodio del t\u00edtulo
         ep_num = None
-        for pat in _EP_PATTERNS:
+        patrones = list(_EP_PATTERNS)
+        patrones.append(re.compile(r'\b0*(\d{1,4})\b(?:\.\w{3,4})?$'))
+        for pat in patrones:
             m = pat.search(win_title)
             if m:
                 ep_num = int(m.group(1))
