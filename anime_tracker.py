@@ -1404,6 +1404,10 @@ class WindowWatcher:
             return ""
 
     def _match_video(self, win_title: str) -> str:
+        # Ignore our own window so 'v2.3' doesn't get parsed as chapter 3
+        if "Anime & Video Tracker" in win_title or "AnimeTracker" in win_title:
+            return None
+            
         import re
         title_lower = win_title.lower()
 
