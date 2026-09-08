@@ -1357,9 +1357,14 @@ class WindowWatcher:
                 if title:
                     match = self._match_video(title)
                     if match:
-                        # 2. Enviar a la cola para que la UI se entere y cambie colores
-                        if self._queue is not None:
-                            self._queue.put(match)
+                        if match != getattr(self, '_last_match', None):
+                            self._last_match = match
+                            if self._queue is not None:
+                                self._queue.put(match)
+                    else:
+                        self._last_match = None
+                else:
+                    self._last_match = None
             except Exception:
                 pass  # jamás dejar caer el hilo
             self._stop_evt.wait(SYNC_INTERVAL_S)
@@ -1469,7 +1474,6 @@ class VideoTrackerApp:
         if self._vista_actual in ("tarjetas", "mosaicos"):
             self._rebuild_cards()
         self._update_ui()
-        self._monitor()
 
         # ── Auto-sync por título de ventana ──────────────────────────────────
         self._sync_queue = queue.Queue()
