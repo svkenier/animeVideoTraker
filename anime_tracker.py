@@ -780,7 +780,6 @@ class CardView:
             height=self.CARD_H,
         )
         frm.pack_propagate(False)   # keep fixed width/height
-        frm._is_video_item = True
 
         # ── Thumbnail canvas (renders immediately with placeholder) ──────────
         tcv = tk.Canvas(
@@ -1459,7 +1458,7 @@ class VideoTrackerApp:
         self.videos             = []
         self.ultimo_visto       = ""
         self._hover_idx         = -1
-        self._focus_index       = -1
+        self._focus_index       = 0
 
         # Async thumbnail cache
         self._thumb_cache = ThumbnailCache(self._on_thumb_ready)
@@ -1475,7 +1474,6 @@ class VideoTrackerApp:
 
         self.ultimo_visto = self._load_progress()
         self._build_ui()
-        self.root.bind("<Button-1>", self._on_global_click, add="+")
         self._refresh_videos()
         if self._vista_actual in ("tarjetas", "mosaicos"):
             self._rebuild_cards()
@@ -1584,9 +1582,6 @@ class VideoTrackerApp:
         from tkinter import filedialog
         
         # Check if already open
-        if getattr(self, '_empty_state_frame', None) and self._empty_state_frame.winfo_exists():
-            self._show_empty_state()
-
         if hasattr(self, '_fm_frame') and self._fm_frame and self._fm_frame.winfo_exists():
             self._fm_frame.destroy()
             self._fm_frame = None
@@ -1671,14 +1666,14 @@ class VideoTrackerApp:
                 lbl.bind("<Enter>", _on_enter)
                 lbl.bind("<Leave>", _on_leave)
                 
-                def make_btn(parent, text, color, cmd, fg_c="#fff"):
-                    b = tk.Label(parent, text=text, bg=color, fg=fg_c, font=("Segoe UI", 8, "bold"), cursor="hand2", padx=6, pady=2)
+                def make_btn(parent, text, color, cmd):
+                    b = tk.Label(parent, text=text, bg=color, fg="#fff", font=("Segoe UI", 8, "bold"), cursor="hand2", padx=6, pady=2)
                     b.pack(side="right", padx=5, pady=6)
                     b.bind("<Button-1>", lambda e, c=cmd: c())
                     return b
                     
                 make_btn(row, "X", "#DC143C", lambda p=c: self._remove_folder_from_manager(p))
-                make_btn(row, "Abrir", C["bg_btn"], lambda p=c: os.startfile(p), fg_c=C["fg_primary"])
+                make_btn(row, "Abrir", C["bg_btn"], lambda p=c: os.startfile(p))
                 if not is_active:
                     make_btn(row, "Activar", C["border_active"], lambda p=c: self._activate_folder_from_manager(p))
                 else:
@@ -1691,19 +1686,26 @@ class VideoTrackerApp:
         
     def _remove_folder_from_manager(self, ruta):
         import tkinter.messagebox as messagebox
+        import os
+        
         if messagebox.askyesno("Confirmar", f"¿Dejar de traquear esta carpeta?\n{ruta}"):
-            # Delete .tracker.json
+            # 1. Eliminar físicamente el archivo de progreso del disco de forma segura
             tracker_file = os.path.join(ruta, ".tracker.json")
-            if os.path.exists(tracker_file):
-                try: os.remove(tracker_file)
-                except Exception: pass
+            try:
+                if os.path.exists(tracker_file):
+                    os.remove(tracker_file)
+            except Exception:
+                pass
             
+            # 2. Remover del gestor de rutas
             self.settings.remove_carpeta(ruta)
+            
+            # 3. Actualizar la interfaz si la carpeta eliminada era la activa
             if self.directorio == ruta:
                 nueva_activa = self.settings.carpeta_activa
                 self.cambiar_carpeta_activa(nueva_activa)
                 
-            # Refresh manager view synchronously
+            # 4. Refrescar la vista del gestor de forma segura
             if hasattr(self, '_fm_frame') and self._fm_frame and self._fm_frame.winfo_exists():
                 if hasattr(self, 'folder_list_frame'):
                     self._draw_folder_list()
@@ -1875,14 +1877,20 @@ class VideoTrackerApp:
         ft.pack(fill="x", side="bottom")
         self._ft = ft
         self.lbl_status = tk.Label(
-            self._ft, text=(f"  {APP_TITLE} v{APP_VERSION}  -  "
-                            "Doble clic para reproducir"),
-            bg=C["bg_footer"], fg=C["fg_sub"], font=("Segoe UI", 8)
-        )
-        self.lbl_status.pack(side="left")
+            ft,
+            text=f"  {APP_TITLE} v{APP_VERSION}  -  Doble clic para reproducir",
+            font=("Segoe UI", 8), bg=C["bg_footer"], fg=C["fg_sub"])
+        self.lbl_status.pack(side="left", padx=8)
         self.lbl_total = tk.Label(ft, text="",
             font=("Segoe UI", 8, "bold"), bg=C["bg_footer"], fg=C["fg_sub"])
         self.lbl_total.pack(side="right", padx=12)
+        # Indicador de auto-sync
+        self.lbl_sync = tk.Label(
+            ft, text="⬤ Sync",
+            font=("Segoe UI", 7), bg=C["bg_footer"], fg="#555555",
+            cursor="hand2")
+        self.lbl_sync.pack(side="right", padx=(0, 6))
+        Tooltip(self.lbl_sync, lambda e: "Auto-Sync: monitoreando reproductor activo")
 
     # ── Vista toggle ──────────────────────────────────────────────────────────
     def _on_cb_change(self, event=None):
@@ -2007,7 +2015,6 @@ class VideoTrackerApp:
 
     # ── Data ──────────────────────────────────────────────────────────────────
     def _refresh_videos(self):
-        self._focus_index = -1
         if not self.directorio or not __import__('os').path.isdir(self.directorio):
             self.videos = []
             return
@@ -2206,6 +2213,7 @@ class VideoTrackerApp:
                 short = truncar(detected, 38)
                 self.lbl_sync.config(fg="#4CAF50", text=f"▶ {short}")
                 self.root.update_idletasks()
+                self.root.after(5000, self._reset_sync_label)
                 
             self.root.after(0, refrescar_ui)
         elif not detected:
@@ -2213,6 +2221,11 @@ class VideoTrackerApp:
             pass
 
         self.root.after(500, self._poll_sync_queue)
+
+    def _reset_sync_label(self):
+        """Vuelve el indicador de sync a su estado en reposo."""
+        if hasattr(self, 'lbl_sync'):
+            self.lbl_sync.config(fg="#555555", text="⬤ Sync")
 
     def _flush_sync_queue(self):
         """Fuerza el vaciado de la cola del watcher sin bloqueos."""
@@ -2276,19 +2289,6 @@ class VideoTrackerApp:
             os.startfile(self.directorio)
         except Exception:
             pass
-
-    def _on_global_click(self, event):
-        w = event.widget
-        while w:
-            if getattr(w, '_is_video_item', False): return
-            if w == getattr(self, 'listbox', None): return
-            if "scroll" in str(w).lower() or "sb" in str(w).lower(): return
-            if w == getattr(self, '_btn_v_list', None) or w == getattr(self, '_btn_v_mos', None) or w == getattr(self, '_btn_v_tarj', None): return
-            w = w.master if hasattr(w, 'master') else None
-        
-        if self._focus_index != -1:
-            self._focus_index = -1
-            self._apply_focus()
 
     def _on_key_press(self, event):
         if not self.videos: return
@@ -2366,18 +2366,6 @@ class VideoTrackerApp:
     # ── Full theme re-apply (called from config window Guardar/Restablecer) ──
     def _apply_theme_all(self):
         self.root.configure(bg=C["bg_root"])
-        
-        # Recorrer toda la estructura de la interfaz grafica
-        def _recorrer_y_actualizar(w):
-            try:
-                # Si es uno de los botones de vista, forzar color de boton
-                if w in [getattr(self, '_btn_v_tarj', None), getattr(self, '_btn_v_mos', None), getattr(self, '_btn_v_list', None)]:
-                    w.configure(bg=C["bg_btn"], fg=C["fg_btn"])
-            except Exception: pass
-            for child in w.winfo_children():
-                _recorrer_y_actualizar(child)
-        _recorrer_y_actualizar(self.root)
-
 
         # Header
         for w in [self._hdr_frm, self._inner_hdr, self._tf, self._pf, self._bf]:
@@ -2430,14 +2418,6 @@ class VideoTrackerApp:
         if self._vista_actual in ("tarjetas", "mosaicos"):
             self._rebuild_cards()
         self._update_ui()
-
-        # Reconstruir Folder Manager si est activo para aplicar colores instantaneamente
-        if getattr(self, '_empty_state_frame', None) and self._empty_state_frame.winfo_exists():
-            self._show_empty_state()
-
-        if hasattr(self, '_fm_frame') and self._fm_frame and self._fm_frame.winfo_exists():
-            self._toggle_folder_manager()
-            self._toggle_folder_manager()
 
 
 # ---------------------------------------------------------------------------
