@@ -971,6 +971,7 @@ class VentanaConfiguracion(tk.Toplevel):
                  bg=bg, fg=C["fg_normal"], width=12, anchor="w").grid(row=0, column=0)
         # Previsualizacion de fuentes (OptionMenu en lugar de ttk.Combobox para soportar fuente individual por opcion)
         opt = tk.OptionMenu(ff, self._fuente_v, *FUENTES)
+        self.fuente_menu = opt
         opt.config(width=20, bg=C["bg_btn"], fg=C["fg_normal"], activebackground=C["bg_btn_hover"], 
                    activeforeground=C["fg_normal"], relief="flat", highlightthickness=1, 
                    highlightbackground=C["border"], highlightcolor=C["border_active"], font=("Segoe UI", 9))
@@ -1092,11 +1093,17 @@ class VentanaConfiguracion(tk.Toplevel):
                         if cur_bg not in (C["border_active"], "#DC143C"):
                             w.configure(bg=C["bg_btn"], fg=fg_normal,
                                         activebackground=C["bg_btn_hover"])
+                    elif cls == "Spinbox":
+                        w.configure(bg=C["bg_btn"], fg=fg_normal, buttonbackground=C["bg_btn"])
                 except Exception:
                     pass
                 for child in w.winfo_children():
                     _walk(child)
             _walk(self)
+            
+            if hasattr(self, "fuente_menu"):
+                self.fuente_menu.config(bg=C["bg_btn"], fg=fg_normal, activebackground=C["bg_btn_hover"], activeforeground=fg_normal)
+                self.fuente_menu["menu"].config(bg=C["bg_btn"], fg=fg_normal, activebackground=C["bg_btn_hover"])
         except Exception:
             pass
 
@@ -1571,6 +1578,9 @@ class VideoTrackerApp:
         import tkinter as tk
         # Hide if folder manager is currently visible (fix #4)
         if getattr(self, '_fm_frame', None) and self._fm_frame and self._fm_frame.winfo_exists():
+            if getattr(self, '_empty_state_frame', None):
+                try: self._empty_state_frame.place_forget()
+                except Exception: pass
             return
         if self._empty_state_frame:
             self._empty_state_frame.destroy()
@@ -1578,10 +1588,8 @@ class VideoTrackerApp:
         self._empty_state_frame.pack(fill="both", expand=True)
         # Use a centered inner frame — defer placement until geometry is known (fix #1)
         frm_center = tk.Frame(self._empty_state_frame, bg=C["bg_root"])
-        def _do_place():
-            self._empty_state_frame.update_idletasks()
-            frm_center.place(relx=0.5, rely=0.5, anchor="center")
-        self.root.after(50, _do_place)
+        self.root.update_idletasks()
+        frm_center.place(relx=0.5, rely=0.5, anchor="center")
         lbl = tk.Label(frm_center, text="No hay ninguna carpeta configurada.", bg=C["bg_root"], fg=C["fg_sub"], font=("Segoe UI", 12))
         lbl.pack(pady=(0, 20))
         
@@ -1804,7 +1812,7 @@ class VideoTrackerApp:
         import tkinter.ttk as ttk
         
         # 3 View Selector Buttons
-        v_frm = tk.Frame(bf, bg=C["bg_header"])
+        v_frm = tk.Frame(bf, bg=C["bg_btn"], bd=0, highlightthickness=0)
         self._btn_v_tarj = tk.Label(v_frm, text="\u25a3", font=("Segoe UI", 11), cursor="hand2", bg=C["bg_btn"], fg=C["fg_btn"], padx=8, pady=2)
         self._btn_v_mos  = tk.Label(v_frm, text="\u229e", font=("Segoe UI", 11), cursor="hand2", bg=C["bg_btn"], fg=C["fg_btn"], padx=8, pady=2)
         self._btn_v_list = tk.Label(v_frm, text="\u2630", font=("Segoe UI", 11), cursor="hand2", bg=C["bg_btn"], fg=C["fg_btn"], padx=8, pady=2)
