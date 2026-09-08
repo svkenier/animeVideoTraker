@@ -780,6 +780,7 @@ class CardView:
             height=self.CARD_H,
         )
         frm.pack_propagate(False)   # keep fixed width/height
+        frm._is_video_item = True
 
         # ── Thumbnail canvas (renders immediately with placeholder) ──────────
         tcv = tk.Canvas(
@@ -1458,7 +1459,7 @@ class VideoTrackerApp:
         self.videos             = []
         self.ultimo_visto       = ""
         self._hover_idx         = -1
-        self._focus_index       = 0
+        self._focus_index       = -1
 
         # Async thumbnail cache
         self._thumb_cache = ThumbnailCache(self._on_thumb_ready)
@@ -1474,6 +1475,7 @@ class VideoTrackerApp:
 
         self.ultimo_visto = self._load_progress()
         self._build_ui()
+        self.root.bind("<Button-1>", self._on_global_click, add="+")
         self._refresh_videos()
         if self._vista_actual in ("tarjetas", "mosaicos"):
             self._rebuild_cards()
@@ -1513,6 +1515,7 @@ class VideoTrackerApp:
         self.settings.set_carpeta_activa(nueva_ruta)
         self.directorio = nueva_ruta
         self.ultimo_visto = self._load_progress()
+        self.root.bind("<Button-1>", self._on_global_click, add="+")
         self._refresh_videos()
         if self._empty_state_frame:
             self._empty_state_frame.pack_forget()
@@ -2343,6 +2346,7 @@ class VideoTrackerApp:
         VentanaConfiguracion(self.root, self)
 
     def _on_refresh(self):
+        self.root.bind("<Button-1>", self._on_global_click, add="+")
         self._refresh_videos()
         if self._vista_actual in ("tarjetas", "mosaicos"):
             self._rebuild_cards()
@@ -2355,6 +2359,18 @@ class VideoTrackerApp:
     # ── Full theme re-apply (called from config window Guardar/Restablecer) ──
     def _apply_theme_all(self):
         self.root.configure(bg=C["bg_root"])
+        
+        # Recorrer toda la estructura de la interfaz grafica
+        def _recorrer_y_actualizar(w):
+            try:
+                # Si es uno de los botones de vista, forzar color de boton
+                if w in [getattr(self, '_btn_v_tarj', None), getattr(self, '_btn_v_mos', None), getattr(self, '_btn_v_list', None)]:
+                    w.configure(bg=C["bg_btn"], fg=C["fg_btn"])
+            except Exception: pass
+            for child in w.winfo_children():
+                _recorrer_y_actualizar(child)
+        _recorrer_y_actualizar(self.root)
+
 
         # Header
         for w in [self._hdr_frm, self._inner_hdr, self._tf, self._pf, self._bf]:
