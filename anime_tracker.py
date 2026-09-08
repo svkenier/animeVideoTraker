@@ -1067,19 +1067,31 @@ class VentanaConfiguracion(tk.Toplevel):
         self._refresh_self_theme()
 
     def _refresh_self_theme(self):
-        """Repaint the config window itself to match the new theme."""
+        """Repaint the config window itself to match the new theme (fix #2)."""
         bg = C["bg_header"]
+        fg_title  = C["fg_title"]
+        fg_normal = C["fg_normal"]
         try:
             self.configure(bg=bg)
             def _walk(w):
                 try:
-                    if isinstance(w, (tk.Label, tk.Frame)):
-                        kw = {}
-                        if "bg" in w.keys(): kw["bg"] = bg
-                        if kw: w.configure(**kw)
-                    elif isinstance(w, tk.Radiobutton):
-                        w.configure(bg=bg, fg=C["fg_normal"], selectcolor=C["bg_btn"],
-                                    activebackground=bg, activeforeground=C["fg_title"])
+                    cls = type(w).__name__
+                    if cls == "Frame":
+                        w.configure(bg=bg)
+                    elif cls == "Label":
+                        # Accent separator frames are tk.Frame, not Label — safe to repaint
+                        cur_bg = w.cget("bg")
+                        # Keep the red accent bar and red buttons as-is
+                        if cur_bg not in (C["border_active"], "#DC143C"):
+                            w.configure(bg=bg, fg=fg_title)
+                    elif cls == "Radiobutton":
+                        w.configure(bg=bg, fg=fg_normal, selectcolor=C["bg_btn"],
+                                    activebackground=bg, activeforeground=fg_title)
+                    elif cls == "Button":
+                        cur_bg = w.cget("bg")
+                        if cur_bg not in (C["border_active"], "#DC143C"):
+                            w.configure(bg=C["bg_btn"], fg=fg_normal,
+                                        activebackground=C["bg_btn_hover"])
                 except Exception:
                     pass
                 for child in w.winfo_children():
@@ -1557,13 +1569,19 @@ class VideoTrackerApp:
         
     def _show_empty_state(self):
         import tkinter as tk
+        # Hide if folder manager is currently visible (fix #4)
+        if getattr(self, '_fm_frame', None) and self._fm_frame and self._fm_frame.winfo_exists():
+            return
         if self._empty_state_frame:
             self._empty_state_frame.destroy()
         self._empty_state_frame = tk.Frame(self.root, bg=C["bg_root"])
         self._empty_state_frame.pack(fill="both", expand=True)
-        # Large Add Button
+        # Use a centered inner frame — defer placement until geometry is known (fix #1)
         frm_center = tk.Frame(self._empty_state_frame, bg=C["bg_root"])
-        frm_center.place(relx=0.5, rely=0.5, anchor="center")
+        def _do_place():
+            self._empty_state_frame.update_idletasks()
+            frm_center.place(relx=0.5, rely=0.5, anchor="center")
+        self.root.after(50, _do_place)
         lbl = tk.Label(frm_center, text="No hay ninguna carpeta configurada.", bg=C["bg_root"], fg=C["fg_sub"], font=("Segoe UI", 12))
         lbl.pack(pady=(0, 20))
         
@@ -1617,9 +1635,12 @@ class VideoTrackerApp:
                 self._show_empty_state()
             return
             
-        # Hide current views
+        # Hide current views (fix #4: always hide empty state when opening manager)
         if getattr(self, '_outer', None): self._outer.pack_forget()
-        if self._empty_state_frame: self._empty_state_frame.pack_forget()
+        if self._empty_state_frame:
+            self._empty_state_frame.pack_forget()
+            try: self._empty_state_frame.place_forget()
+            except Exception: pass
         
         self._fm_frame = tk.Frame(self.root, bg=C["bg_root"])
         self._fm_frame.pack(fill="both", expand=True)
