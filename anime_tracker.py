@@ -18,7 +18,7 @@ from tkinter import messagebox, colorchooser, ttk
 #  CONSTANTS
 # ---------------------------------------------------------------------------
 APP_TITLE   = "Anime & Video Tracker"
-APP_VERSION = "2.3"
+APP_VERSION = "3.0.7"
 
 SYNC_INTERVAL_S = 0.5   # segundos entre chequeos del watcher de ventanas
 
