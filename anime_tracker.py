@@ -1327,6 +1327,9 @@ class WindowWatcher:
     # ----------------------------------------------------------------- private
     def _run(self):
         while not self._stop_evt.is_set():
+            if not self._videos or not self._dirpath:
+                self._stop_evt.wait(SYNC_INTERVAL_S)
+                continue
             try:
                 title = self._get_foreground_title()
                 if title:
