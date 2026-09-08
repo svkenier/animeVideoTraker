@@ -1460,6 +1460,9 @@ class VideoTrackerApp:
     def cambiar_carpeta_activa(self, nueva_ruta):
         import os
         import tkinter as tk
+        if hasattr(self, '_flush_sync_queue'):
+            self._flush_sync_queue()
+            
         if not nueva_ruta or not os.path.isdir(nueva_ruta):
             self.directorio = ""
             self.settings.set_carpeta_activa("")
@@ -1992,10 +1995,21 @@ class VideoTrackerApp:
         try:
             # os.path.isfile es mas robusto que os.path.exists para HIDDEN
             if not os.path.isfile(ruta):
+                data = {"ultimo_visto": ""}
+                with open(ruta, "w", encoding="utf-8") as f:
+                    import json, os
+                    json.dump(data, f, ensure_ascii=False)
+                    f.flush()
+                    os.fsync(f.fileno())
+                import ctypes
+                ctypes.windll.kernel32.SetFileAttributesW(str(ruta), 0x02)
                 return ""
+                
             # Quitar HIDDEN antes de leer
+            import ctypes
             ctypes.windll.kernel32.SetFileAttributesW(str(ruta), 0x80)
             with open(ruta, "r", encoding="utf-8") as f:
+                import json
                 data = json.load(f)
             # Re-aplicar HIDDEN
             ctypes.windll.kernel32.SetFileAttributesW(str(ruta), 0x02)
