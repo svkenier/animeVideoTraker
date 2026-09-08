@@ -1075,6 +1075,8 @@ class VentanaConfiguracion(tk.Toplevel):
         try:
             self.configure(bg=bg)
             def _walk(w):
+                if hasattr(self, '_swatches') and w in self._swatches.values():
+                    return
                 try:
                     cls = type(w).__name__
                     if cls == "Frame":
@@ -1585,8 +1587,8 @@ class VideoTrackerApp:
         if self._empty_state_frame:
             self._empty_state_frame.destroy()
         self._empty_state_frame = tk.Frame(self.root, bg=C["bg_root"])
-        # Outer container perfectly stretched across entire app window
-        self._empty_state_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
+        # Use pack so it naturally sits in the main area below the top header frame
+        self._empty_state_frame.pack(fill="both", expand=True)
         
         # Inner centered container that naturally calculates its own center natively
         frm_center = tk.Frame(self._empty_state_frame, bg=C["bg_root"])
