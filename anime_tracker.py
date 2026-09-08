@@ -1585,11 +1585,12 @@ class VideoTrackerApp:
         if self._empty_state_frame:
             self._empty_state_frame.destroy()
         self._empty_state_frame = tk.Frame(self.root, bg=C["bg_root"])
-        self._empty_state_frame.pack(fill="both", expand=True)
-        # Use a centered inner frame — defer placement until geometry is known (fix #1)
+        # Outer container perfectly stretched across entire app window
+        self._empty_state_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
+        
+        # Inner centered container that naturally calculates its own center natively
         frm_center = tk.Frame(self._empty_state_frame, bg=C["bg_root"])
-        self.root.update_idletasks()
-        frm_center.place(relx=0.5, rely=0.5, anchor="center")
+        frm_center.pack(expand=True)
         lbl = tk.Label(frm_center, text="No hay ninguna carpeta configurada.", bg=C["bg_root"], fg=C["fg_sub"], font=("Segoe UI", 12))
         lbl.pack(pady=(0, 20))
         
@@ -1813,9 +1814,9 @@ class VideoTrackerApp:
         
         # 3 View Selector Buttons
         v_frm = tk.Frame(bf, bg=C["bg_btn"], bd=0, highlightthickness=0)
-        self._btn_v_tarj = tk.Label(v_frm, text="\u25a3", font=("Segoe UI", 11), cursor="hand2", bg=C["bg_btn"], fg=C["fg_btn"], padx=8, pady=2)
-        self._btn_v_mos  = tk.Label(v_frm, text="\u229e", font=("Segoe UI", 11), cursor="hand2", bg=C["bg_btn"], fg=C["fg_btn"], padx=8, pady=2)
-        self._btn_v_list = tk.Label(v_frm, text="\u2630", font=("Segoe UI", 11), cursor="hand2", bg=C["bg_btn"], fg=C["fg_btn"], padx=8, pady=2)
+        self._btn_v_tarj = tk.Label(v_frm, text="\u25a3", font=("Segoe UI", 11), cursor="hand2", bg=C["bg_btn"], fg=C["fg_btn"], padx=8, pady=2, bd=0, highlightthickness=0, relief="flat", takefocus=0)
+        self._btn_v_mos  = tk.Label(v_frm, text="\u229e", font=("Segoe UI", 11), cursor="hand2", bg=C["bg_btn"], fg=C["fg_btn"], padx=8, pady=2, bd=0, highlightthickness=0, relief="flat", takefocus=0)
+        self._btn_v_list = tk.Label(v_frm, text="\u2630", font=("Segoe UI", 11), cursor="hand2", bg=C["bg_btn"], fg=C["fg_btn"], padx=8, pady=2, bd=0, highlightthickness=0, relief="flat", takefocus=0)
         
         self._btn_v_list.bind("<Button-1>", lambda e: self._set_vista("lista"))
         self._btn_v_mos.bind("<Button-1>",  lambda e: self._set_vista("mosaicos"))
@@ -1825,9 +1826,9 @@ class VideoTrackerApp:
             w.bind("<Enter>", lambda e, w=w: w.configure(bg=C["bg_btn_hover"]) if w.cget("bg") != C["border_active"] else None)
             w.bind("<Leave>", lambda e, w=w: w.configure(bg=C["bg_btn"]) if w.cget("bg") != C["border_active"] else None)
         
-        self._btn_v_tarj.pack(side="right", padx=1)
-        self._btn_v_mos.pack(side="right", padx=1)
-        self._btn_v_list.pack(side="right", padx=1)
+        self._btn_v_tarj.pack(side="right", padx=0, pady=0)
+        self._btn_v_mos.pack(side="right", padx=0, pady=0)
+        self._btn_v_list.pack(side="right", padx=0, pady=0)
         
         b1.pack(side="right", padx=(10, 0))
         b2.pack(side="right", padx=(6, 0))
