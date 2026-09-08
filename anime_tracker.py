@@ -1666,14 +1666,14 @@ class VideoTrackerApp:
                 lbl.bind("<Enter>", _on_enter)
                 lbl.bind("<Leave>", _on_leave)
                 
-                def make_btn(parent, text, color, cmd):
-                    b = tk.Label(parent, text=text, bg=color, fg="#fff", font=("Segoe UI", 8, "bold"), cursor="hand2", padx=6, pady=2)
+                def make_btn(parent, text, color, cmd, fg_c="#fff"):
+                    b = tk.Label(parent, text=text, bg=color, fg=fg_c, font=("Segoe UI", 8, "bold"), cursor="hand2", padx=6, pady=2)
                     b.pack(side="right", padx=5, pady=6)
                     b.bind("<Button-1>", lambda e, c=cmd: c())
                     return b
                     
                 make_btn(row, "X", "#DC143C", lambda p=c: self._remove_folder_from_manager(p))
-                make_btn(row, "Abrir", C["bg_btn"], lambda p=c: os.startfile(p))
+                make_btn(row, "Abrir", C["bg_btn"], lambda p=c: os.startfile(p), fg_c=C["fg_primary"])
                 if not is_active:
                     make_btn(row, "Activar", C["border_active"], lambda p=c: self._activate_folder_from_manager(p))
                 else:
@@ -1870,10 +1870,11 @@ class VideoTrackerApp:
         ft.pack(fill="x", side="bottom")
         self._ft = ft
         self.lbl_status = tk.Label(
-            ft,
-            text=f"  {APP_TITLE} v{APP_VERSION}  -  Doble clic para reproducir",
-            font=("Segoe UI", 8), bg=C["bg_footer"], fg=C["fg_sub"])
-        self.lbl_status.pack(side="left", padx=8)
+            self._ft, text=(f"  {APP_TITLE} v{APP_VERSION}  -  "
+                            "Doble clic para reproducir"),
+            bg=C["bg_footer"], fg=C["fg_sub"], font=("Segoe UI", 8)
+        )
+        self.lbl_status.pack(side="left")
         self.lbl_total = tk.Label(ft, text="",
             font=("Segoe UI", 8, "bold"), bg=C["bg_footer"], fg=C["fg_sub"])
         self.lbl_total.pack(side="right", padx=12)
@@ -2215,11 +2216,6 @@ class VideoTrackerApp:
 
         self.root.after(500, self._poll_sync_queue)
 
-    def _reset_sync_label(self):
-        """Vuelve el indicador de sync a su estado en reposo."""
-        if hasattr(self, 'lbl_sync'):
-            self.lbl_sync.config(fg="#555555", text="⬤ Sync")
-
     def _flush_sync_queue(self):
         """Fuerza el vaciado de la cola del watcher sin bloqueos."""
         if not getattr(self, 'directorio', None):
@@ -2411,6 +2407,11 @@ class VideoTrackerApp:
         if self._vista_actual in ("tarjetas", "mosaicos"):
             self._rebuild_cards()
         self._update_ui()
+
+        # Reconstruir Folder Manager si est activo para aplicar colores instantaneamente
+        if hasattr(self, '_fm_frame') and self._fm_frame and self._fm_frame.winfo_exists():
+            self._toggle_folder_manager()
+            self._toggle_folder_manager()
 
 
 # ---------------------------------------------------------------------------
