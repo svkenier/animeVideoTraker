@@ -1398,30 +1398,33 @@ class WindowWatcher:
             
             def enum_windows_proc(hwnd, lParam):
                 nonlocal found_title
-                if not user32.IsWindowVisible(hwnd):
-                    return True
-                    
-                pid = ctypes.c_ulong()
-                user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
-                
-                hProcess = kernel32.OpenProcess(0x1000, False, pid)
-                if hProcess:
-                    exe_name_buf = ctypes.create_unicode_buffer(260)
-                    size = ctypes.c_ulong(260)
-                    if kernel32.QueryFullProcessImageNameW(hProcess, 0, exe_name_buf, ctypes.byref(size)):
-                        exe_path = exe_name_buf.value.lower()
-                        exe_name = os.path.basename(exe_path)
+                try:
+                    if not user32.IsWindowVisible(hwnd):
+                        return True
                         
-                        if exe_name in player_exes:
-                            length = user32.GetWindowTextLengthW(hwnd)
-                            if length > 0:
-                                buf = ctypes.create_unicode_buffer(length + 1)
-                                user32.GetWindowTextW(hwnd, buf, length + 1)
-                                if buf.value:
-                                    found_title = buf.value
-                                    kernel32.CloseHandle(hProcess)
-                                    return False
-                    kernel32.CloseHandle(hProcess)
+                    pid = ctypes.c_ulong()
+                    user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+                    
+                    hProcess = kernel32.OpenProcess(0x1000, False, pid)
+                    if hProcess:
+                        exe_name_buf = ctypes.create_unicode_buffer(260)
+                        size = ctypes.c_ulong(260)
+                        if kernel32.QueryFullProcessImageNameW(hProcess, 0, exe_name_buf, ctypes.byref(size)):
+                            exe_path = exe_name_buf.value.lower()
+                            exe_name = os.path.basename(exe_path)
+                            
+                            if exe_name in player_exes:
+                                length = user32.GetWindowTextLengthW(hwnd)
+                                if length > 0:
+                                    buf = ctypes.create_unicode_buffer(length + 1)
+                                    user32.GetWindowTextW(hwnd, buf, length + 1)
+                                    if buf.value:
+                                        found_title = buf.value
+                                        kernel32.CloseHandle(hProcess)
+                                        return False
+                        kernel32.CloseHandle(hProcess)
+                except Exception:
+                    pass
                 return True
 
             EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
