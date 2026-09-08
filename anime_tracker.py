@@ -1584,6 +1584,9 @@ class VideoTrackerApp:
         from tkinter import filedialog
         
         # Check if already open
+        if getattr(self, '_empty_state_frame', None) and self._empty_state_frame.winfo_exists():
+            self._show_empty_state()
+
         if hasattr(self, '_fm_frame') and self._fm_frame and self._fm_frame.winfo_exists():
             self._fm_frame.destroy()
             self._fm_frame = None
@@ -1880,13 +1883,6 @@ class VideoTrackerApp:
         self.lbl_total = tk.Label(ft, text="",
             font=("Segoe UI", 8, "bold"), bg=C["bg_footer"], fg=C["fg_sub"])
         self.lbl_total.pack(side="right", padx=12)
-        # Indicador de auto-sync
-        self.lbl_sync = tk.Label(
-            ft, text="⬤ Sync",
-            font=("Segoe UI", 7), bg=C["bg_footer"], fg="#555555",
-            cursor="hand2")
-        self.lbl_sync.pack(side="right", padx=(0, 6))
-        Tooltip(self.lbl_sync, lambda e: "Auto-Sync: monitoreando reproductor activo")
 
     # ── Vista toggle ──────────────────────────────────────────────────────────
     def _on_cb_change(self, event=None):
@@ -2011,6 +2007,7 @@ class VideoTrackerApp:
 
     # ── Data ──────────────────────────────────────────────────────────────────
     def _refresh_videos(self):
+        self._focus_index = -1
         if not self.directorio or not __import__('os').path.isdir(self.directorio):
             self.videos = []
             return
@@ -2209,7 +2206,6 @@ class VideoTrackerApp:
                 short = truncar(detected, 38)
                 self.lbl_sync.config(fg="#4CAF50", text=f"▶ {short}")
                 self.root.update_idletasks()
-                self.root.after(5000, self._reset_sync_label)
                 
             self.root.after(0, refrescar_ui)
         elif not detected:
@@ -2436,6 +2432,9 @@ class VideoTrackerApp:
         self._update_ui()
 
         # Reconstruir Folder Manager si est activo para aplicar colores instantaneamente
+        if getattr(self, '_empty_state_frame', None) and self._empty_state_frame.winfo_exists():
+            self._show_empty_state()
+
         if hasattr(self, '_fm_frame') and self._fm_frame and self._fm_frame.winfo_exists():
             self._toggle_folder_manager()
             self._toggle_folder_manager()
