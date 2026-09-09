@@ -1,29 +1,38 @@
 @echo off
-REM =================================================================
-REM  BUILD SCRIPT - Anime & Video Tracker v2.2
-REM  Genera AnimeTracker.exe completamente portable
-REM =================================================================
 setlocal
-SET PYTHON=C:\Users\SVKENIER\AppData\Local\Python\bin\python.exe
-SET SCRIPT=anime_tracker.py
-SET EXE_NAME=AnimeTracker
 
-echo.
-echo  ============================================
-echo   Anime ^& Video Tracker v2.2  -  Build Tool
-echo  ============================================
-echo.
+:: ==========================================
+:: CONFIGURACIÓN DIRECTA Y CORREGIDA
+:: ==========================================
+set "SCRIPT=anime_tracker.py"
+set "EXE_NAME=AnimeTracker"
+set "MAIN_ICON=logo.ico"
 
-"%PYTHON%" -c "import PyInstaller" 2>nul
-IF %ERRORLEVEL% NEQ 0 (
-    echo  [*] Instalando PyInstaller...
-    "%PYTHON%" -m pip install pyinstaller
+:: Buscar la ruta de python instalada en el sistema de forma directa
+for /f "delims=" %%i in ('where python 2^>nul') do set "PYTHON_PATH=%%i"
+
+if "%PYTHON_PATH%"=="" (
+    for /f "delims=" %%i in ('where py 2^>nul') do set "PYTHON_PATH=%%i"
 )
 
-echo  [*] Compilando %SCRIPT% ^-^> %EXE_NAME%.exe ...
+if "%PYTHON_PATH%"=="" (
+    echo [ERROR] No se encuentra ningun ejecutable de Python valido en el sistema.
+    goto :error
+)
+
+echo  [*] Usando Python en: %PYTHON_PATH%
+echo  [*] Verificando PyInstaller...
+"%PYTHON_PATH%" -c "import PyInstaller" 2>nul
+IF %ERRORLEVEL% NEQ 0 (
+    echo  [*] Instalando PyInstaller...
+    "%PYTHON_PATH%" -m pip install pyinstaller
+)
+
+echo  [*] Compilando %SCRIPT% ^-^> %EXE_NAME%.exe con recursos e iconos...
 echo.
 
-"%PYTHON%" -m PyInstaller --onefile --windowed --name "%EXE_NAME%" --clean "%SCRIPT%"
+:: PyInstaller con 'gear.ico' corregido
+"%PYTHON_PATH%" -m PyInstaller --onefile --windowed --name "%EXE_NAME%" --icon="%MAIN_ICON%" --add-data "logo.ico;." --add-data "gear.ico;." --add-data "logo.png;." --clean "%SCRIPT%"
 
 echo.
 IF EXIST "dist\%EXE_NAME%.exe" (
@@ -33,9 +42,16 @@ IF EXIST "dist\%EXE_NAME%.exe" (
     echo  INSTRUCCIONES PORTABLE:
     echo  Copia AnimeTracker.exe a cualquier carpeta con videos y ejecutalo.
     echo  Los archivos .tracker.json y tracker_settings.json se crean ahi mismo.
-) ELSE (
-    echo  [ERROR] Revisa los mensajes de PyInstaller arriba.
+) else (
+    goto :error
 )
+goto :end
+
+:error
 echo.
+echo  [ERROR] Revisa los mensajes anteriores de PyInstaller.
+echo.
+
+:end
 pause
 endlocal

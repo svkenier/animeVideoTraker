@@ -15,6 +15,22 @@ import struct
 import sys
 import threading
 
+def self_unblock():
+    """Elimina automáticamente la marca de origen (Mark of the Web) de Windows al arrancar,
+    detectando de forma dinámica la ruta exacta del ejecutable actual."""
+    try:
+        # Solo actúa si está compilado como ejecutable (frozen)
+        if getattr(sys, 'frozen', False):
+            zone_identifier_path = sys.executable + ":Zone.Identifier"
+            if os.path.exists(zone_identifier_path):
+                os.remove(zone_identifier_path)
+    except Exception:
+        # Si no hay permisos o falla por cualquier motivo, se ignora de forma segura para no romper el inicio
+        pass
+
+# Ejecutar esto en la primera línea ejecutable del script
+self_unblock()
+
 try:
     import cv2  # type: ignore # noqa: F401
 except ImportError:
@@ -267,7 +283,8 @@ def obtener_nombre_reproductor(archivo_nombre):
         return True
 
     try:
-        _u32.EnumWindows(_EnumCB(_cb), 0)
+        cb_func = _EnumCB(_cb)
+        _u32.EnumWindows(cb_func, 0)
     except Exception:
         pass
     return found[0] if found else "REPRODUCTOR"
@@ -1838,7 +1855,8 @@ class WindowWatcher:
             EnumWindowsProc = ctypes.WINFUNCTYPE(
                 ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p
             )
-            user32.EnumWindows(EnumWindowsProc(enum_windows_proc), 0)
+            cb_func = EnumWindowsProc(enum_windows_proc)
+            user32.EnumWindows(cb_func, 0)
             return found_title
         except Exception:
             return ""
@@ -1851,6 +1869,11 @@ class WindowWatcher:
         import re
 
         title_lower = win_title.lower()
+
+        # Ignorar ventanas del sistema operativo o procesos comunes que suelen tener números
+        ignorar = ["system32", "syswow64", "explorador de archivos", "file explorer", "chrome", "edge", "firefox"]
+        if any(x in title_lower for x in ignorar):
+            return None
 
         for v in self._videos:
             name_no_ext = os.path.splitext(v)[0].lower()
@@ -1876,6 +1899,112 @@ class WindowWatcher:
             if ep_str_3 in vl or ep_str_2 in vl:
                 return v
         return None
+
+
+# Variables de estado globales para el manejo del bloqueo
+antivirus_advertencia_mostrada = False
+banner_antivirus = None
+
+def mostrar_alerta_antivirus(root_window):
+    """Muestra la ventana modal estética y obligatoria solo una vez."""
+    import tkinter as tk
+    alerta = tk.Toplevel(root_window)
+    alerta.title("Atención: Bloqueo de Seguridad")
+    alerta.geometry("450x300")
+    alerta.resizable(False, False)
+    
+    alerta.transient(root_window)
+    alerta.grab_set()
+    alerta.configure(bg="#1e1e1e")
+    
+    lbl_titulo = tk.Label(
+        alerta, 
+        text="⚠️ Acción bloqueada por el Antivirus", 
+        font=("Segoe UI", 12, "bold"), 
+        fg="#ffcc00", 
+        bg="#1e1e1e"
+    )
+    lbl_titulo.pack(pady=(20, 10))
+    
+    mensaje = (
+        "El sistema de seguridad de Windows (o tu antivirus) ha bloqueado "
+        "los permisos de escritura o eliminación del archivo de tracking.\n\n"
+        "Debido a esto, la aplicación no puede actualizar ni borrar los "
+        "registros correctamente.\n\n"
+        "👉 Solución requerida: Por favor, agrega la carpeta de esta "
+        "aplicación a las exclusiones de tu antivirus para permitir su funcionamiento normal."
+    )
+    
+    lbl_texto = tk.Label(
+        alerta, 
+        text=mensaje, 
+        font=("Segoe UI", 10), 
+        fg="#ffffff", 
+        bg="#1e1e1e", 
+        justify="left", 
+        wraplength=400
+    )
+    lbl_texto.pack(pady=10, padx=20)
+    
+    btn_cerrar = tk.Button(
+        alerta, 
+        text="Entendido, lo solucionaré", 
+        font=("Segoe UI", 10, "bold"), 
+        bg="#007acc", 
+        fg="#ffffff", 
+        relief="flat", 
+        padx=10, 
+        pady=5, 
+        command=alerta.destroy
+    )
+    btn_cerrar.pack(pady=(15, 20))
+    
+    alerta.update_idletasks()
+    x = root_window.winfo_x() + (root_window.winfo_width() // 2) - (alerta.winfo_width() // 2)
+    y = root_window.winfo_y() + (root_window.winfo_height() // 2) - (alerta.winfo_height() // 2)
+    alerta.geometry(f"+{x}+{y}")
+    
+    root_window.wait_window(alerta)
+
+def mostrar_banner_advertencia(root_window):
+    """Muestra un banner superior persistente si no existe ya."""
+    import tkinter as tk
+    global banner_antivirus
+    if banner_antivirus is not None:
+        return
+    
+    # Intentar ubicarlo de forma limpia arriba del todo
+    try:
+        banner_antivirus = tk.Label(
+            root_window,
+            text="⚠️ Antivirus bloqueando archivos de tracking. Agrega esta carpeta a las exclusiones.",
+            bg="#b22222",  # Rojo oscuro de advertencia
+            fg="#ffffff",
+            font=("Segoe UI", 9, "bold"),
+            pady=5
+        )
+        banner_antivirus.pack(side=tk.TOP, fill=tk.X, before=root_window.winfo_children()[0] if root_window.winfo_children() else None)
+    except Exception:
+        pass
+
+def limpiar_advertencia_antivirus():
+    """Elimina el banner y reinicia la bandera cuando los permisos se han restaurado (Auto-reparación)."""
+    global antivirus_advertencia_mostrada, banner_antivirus
+    if banner_antivirus is not None:
+        try:
+            banner_antivirus.destroy()
+        except Exception:
+            pass
+        banner_antivirus = None
+    antivirus_advertencia_mostrada = False
+
+def manejar_error_permisos(root_window):
+    """Maneja el flujo del error: modal la 1ª vez y banner persistente."""
+    global antivirus_advertencia_mostrada
+    if not antivirus_advertencia_mostrada:
+        antivirus_advertencia_mostrada = True
+        mostrar_alerta_antivirus(root_window)
+    mostrar_banner_advertencia(root_window)
 
 
 class VideoTrackerApp:
@@ -2262,7 +2391,13 @@ class VideoTrackerApp:
             tracker_file = os.path.join(ruta, ".tracker.json")
             try:
                 if os.path.exists(tracker_file):
+                    import ctypes
+                    # Quitar el atributo HIDDEN/READONLY (0x80 = NORMAL) antes de borrar
+                    ctypes.windll.kernel32.SetFileAttributesW(str(tracker_file), 0x80)
                     os.remove(tracker_file)
+                    limpiar_advertencia_antivirus()
+            except PermissionError:
+                manejar_error_permisos(self.root)
             except Exception:
                 pass
 
@@ -2757,6 +2892,7 @@ class VideoTrackerApp:
                     f.flush()
                     os.fsync(f.fileno())
                 ctypes.windll.kernel32.SetFileAttributesW(str(ruta), 0x02)
+                limpiar_advertencia_antivirus()
                 return ""
 
             # Quitar HIDDEN antes de leer
@@ -2765,7 +2901,10 @@ class VideoTrackerApp:
                 data = json.load(f)
             # Re-aplicar HIDDEN
             ctypes.windll.kernel32.SetFileAttributesW(str(ruta), 0x02)
+            limpiar_advertencia_antivirus()
             return data.get("ultimo_visto", "")
+        except PermissionError:
+            manejar_error_permisos(self.root)
         except Exception:
             pass
         return ""
@@ -2812,6 +2951,9 @@ class VideoTrackerApp:
 
             # Paso 4: re-aplicar HIDDEN
             ctypes.windll.kernel32.SetFileAttributesW(str(ruta), FILE_ATTRIBUTE_HIDDEN)
+            limpiar_advertencia_antivirus()
+        except PermissionError:
+            manejar_error_permisos(self.root)
         except Exception:
             pass
 

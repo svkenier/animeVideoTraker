@@ -5,7 +5,7 @@ a = Analysis(
     ['anime_tracker.py'],
     pathex=[],
     binaries=[],
-    datas=[('logo.svg', '.'), ('logo.ico', '.'), ('gear.ico', '.')],
+    datas=[('logo.ico', '.'), ('gear.ico', '.'), ('logo.png', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
