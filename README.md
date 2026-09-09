@@ -98,6 +98,15 @@ pyinstaller --onefile --windowed --icon=logo.ico --name AnimeTracker anime_track
 
 ---
 
+## 🛡️ Sistema de Detección de Bloqueo de Antivirus
+
+AnimeTracker cuenta con un sistema inteligente de detección de **falsos positivos / bloqueos** por parte de programas antivirus (como Windows Defender):
+
+- **Alerta Modal Emergente:** Si el antivirus bloquea los permisos de escritura de la aplicación, el programa no se congelará ni cerrará abruptamente. En su lugar, interceptará el error de forma segura y mostrará una ventana emergente obligatoria, informándote claramente que el antivirus está impidiendo que se guarden tus progresos.
+- **Barra de Estado Persistente:** Una vez que cierras la ventana de alerta, un banner rojo (bandera de estado) se mantendrá en la parte superior de la aplicación. Esto sirve como recordatorio permanente de que tus capítulos no se están guardando, para que puedas pausar y agregar la exclusión en tu antivirus o solucionar las restricciones de Windows ("Mark of the Web") y del directorio actual.
+
+---
+
 ## 🛠️ Tecnologías y Librerías
 
 - **Python 3.10+** — Lenguaje principal
