@@ -1200,13 +1200,18 @@ class VentanaConfiguracion(tk.Toplevel):
             import logging; logging.error("Captura silenciosa", exc_info=True)
             pass
 
+        self._build()
+
         self.update_idletasks()
         pw, ph = parent.winfo_width(), parent.winfo_height()
         px, py = parent.winfo_rootx(), parent.winfo_rooty()
-        w, h = 530, 550
+        
+        ancho = self.winfo_reqwidth()
+        alto = self.winfo_reqheight()
+        w = max(ancho, 550)
+        h = alto + 40
         self.geometry(f"{w}x{h}+{px + (pw - w) // 2}+{py + (ph - h) // 2}")
 
-        self._build()
 
     def _build(self):
         bg = C["bg_header"]
@@ -1279,16 +1284,18 @@ class VentanaConfiguracion(tk.Toplevel):
         self._sec(body, "3.  Tipografia")
         ff = tk.Frame(body, bg=bg)
         ff.pack(fill="x", padx=20, pady=6)
+        
         tk.Label(
             ff,
             text="Fuente:",
             font=("Segoe UI", 9),
             bg=bg,
             fg=C["fg_normal"],
-            width=12,
+            width=8,
             anchor="w",
-        ).grid(row=0, column=0)
-        # Previsualizacion de fuentes (OptionMenu en lugar de ttk.Combobox para soportar fuente individual por opcion)
+        ).pack(side="left")
+        
+        # Previsualizacion de fuentes
         opt = tk.OptionMenu(ff, self._fuente_v, *FUENTES)
         self.fuente_menu = opt
         opt.config(
@@ -1304,7 +1311,6 @@ class VentanaConfiguracion(tk.Toplevel):
             font=("Segoe UI", 9),
         )
 
-        # Modificar el menu desplegable para que cada fuente use su propia tipografia
         menu = opt["menu"]
         menu.config(
             bg=C["bg_btn"], fg=C["fg_normal"], activebackground=C["bg_btn_hover"]
@@ -1312,16 +1318,18 @@ class VentanaConfiguracion(tk.Toplevel):
         for i, font_name in enumerate(FUENTES):
             menu.entryconfig(i, font=(font_name, 11))
 
-        opt.grid(row=0, column=1, sticky="w")
+        opt.pack(side="left", padx=(0, 15))
+        
         tk.Label(
             ff,
             text="Tamano:",
             font=("Segoe UI", 9),
             bg=bg,
             fg=C["fg_normal"],
-            width=12,
+            width=8,
             anchor="w",
-        ).grid(row=1, column=0, pady=6)
+        ).pack(side="left")
+        
         tk.Spinbox(
             ff,
             textvariable=self._tamano_v,
@@ -1333,14 +1341,15 @@ class VentanaConfiguracion(tk.Toplevel):
             buttonbackground=C["bg_btn"],
             relief="flat",
             font=("Segoe UI", 9),
-        ).grid(row=1, column=1, sticky="w")
+        ).pack(side="left")
+        
         tk.Label(
             ff,
-            text="pt  (16 recomendado, estilo bold)",
+            text="pt",
             font=("Segoe UI", 8),
             bg=bg,
             fg=C["fg_sub"],
-        ).grid(row=1, column=2, padx=6)
+        ).pack(side="left", padx=6)
         
         tk.Frame(body, bg=bg, height=20).pack()
 
