@@ -1203,7 +1203,7 @@ class VentanaConfiguracion(tk.Toplevel):
         self.update_idletasks()
         pw, ph = parent.winfo_width(), parent.winfo_height()
         px, py = parent.winfo_rootx(), parent.winfo_rooty()
-        w, h = 530, 520
+        w, h = 530, 550
         self.geometry(f"{w}x{h}+{px + (pw - w) // 2}+{py + (ph - h) // 2}")
 
         self._build()
@@ -1272,6 +1272,9 @@ class VentanaConfiguracion(tk.Toplevel):
         for key, label in CUSTOM_COLOR_LABELS:
             self._color_row(body, key, label, bg)
 
+        # Fila especial para el color global de Favoritos
+        self._star_color_row(body, bg)
+
         # Section 3: Font
         self._sec(body, "3.  Tipografia")
         ff = tk.Frame(body, bg=bg)
@@ -1339,34 +1342,6 @@ class VentanaConfiguracion(tk.Toplevel):
             fg=C["fg_sub"],
         ).grid(row=1, column=2, padx=6)
         
-        # Section 4: Favoritos
-        self._sec(body, "4.  Favoritos")
-        sf = tk.Frame(body, bg=bg)
-        sf.pack(fill="x", padx=20, pady=6)
-        tk.Label(
-            sf, text="Color de estrella:", font=("Segoe UI", 9),
-            bg=bg, fg=C["fg_normal"], width=15, anchor="w"
-        ).pack(side="left")
-        
-        self.fav_color_var = tk.StringVar(value=self.app.settings.color_estrella)
-        color_btn = tk.Button(
-            sf, text="■ Elegir", font=("Segoe UI", 8, "bold"), bg=C["bg_btn"], fg=self.fav_color_var.get(),
-            relief="flat", cursor="hand2", width=10
-        )
-        color_btn.pack(side="left", padx=10)
-        
-        def _pick_fav_color():
-            try:
-                c = colorchooser.askcolor(initialcolor=self.fav_color_var.get(), title="Color de Estrella")[1]
-                if c:
-                    self.fav_color_var.set(c)
-                    color_btn.config(fg=c)
-            except Exception:
-                import logging; logging.error("Captura silenciosa", exc_info=True)
-                pass
-                
-        color_btn.config(command=_pick_fav_color)
-
         tk.Frame(body, bg=bg, height=20).pack()
 
         # Reset button inside scrollable area
@@ -1431,6 +1406,47 @@ class VentanaConfiguracion(tk.Toplevel):
             pady=2,
         )
         b.bind("<Button-1>", lambda e, k=key: pick(k))
+        b.bind("<Enter>", lambda e: b.configure(bg=C["bg_btn_hover"]))
+        b.bind("<Leave>", lambda e: b.configure(bg=C["bg_btn"]))
+        b.pack(side="left")
+
+    def _star_color_row(self, parent, bg):
+        """Fila para el color de favoritos (global, independiente del tema)"""
+        f = tk.Frame(parent, bg=bg)
+        f.pack(fill="x", padx=20, pady=3)
+        tk.Label(
+            f,
+            text="Color de estrella (Favoritos)",
+            font=("Segoe UI", 9),
+            bg=bg,
+            fg=C["fg_normal"],
+            width=30,
+            anchor="w",
+        ).pack(side="left")
+
+        self.fav_color_var = tk.StringVar(value=self.app.settings.color_estrella)
+        sw = tk.Label(f, text="      ", bg=self.fav_color_var.get(), relief="groove", bd=1, cursor="hand2")
+        sw.pack(side="left", padx=(0, 6))
+
+        def pick(s=sw):
+            res = colorchooser.askcolor(color=self.fav_color_var.get(), title="Color de Estrella", parent=self)
+            if res and res[1]:
+                self.fav_color_var.set(res[1])
+                s.configure(bg=res[1])
+
+        sw.bind("<Button-1>", lambda e: pick())
+        
+        b = tk.Label(
+            f,
+            text="Elegir",
+            font=("Segoe UI", 8),
+            cursor="hand2",
+            bg=C["bg_btn"],
+            fg=C["fg_btn"],
+            padx=6,
+            pady=2,
+        )
+        b.bind("<Button-1>", lambda e: pick())
         b.bind("<Enter>", lambda e: b.configure(bg=C["bg_btn_hover"]))
         b.bind("<Leave>", lambda e: b.configure(bg=C["bg_btn"]))
         b.pack(side="left")
