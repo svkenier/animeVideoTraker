@@ -10,7 +10,7 @@ Desarrollada con **Python + Tkinter** · Diseño en **modo oscuro y claro** · P
 ![Tkinter](https://img.shields.io/badge/UI-Tkinter-orange?style=flat-square)
 ![License](https://img.shields.io/badge/Licencia-MIT-green?style=flat-square)
 ![Platform](https://img.shields.io/badge/Plataforma-Windows-lightgrey?style=flat-square&logo=windows)
-![Version](https://img.shields.io/badge/Versión-3.0.7-crimson?style=flat-square)
+![Version](https://img.shields.io/badge/Versión-3.1.0-crimson?style=flat-square)
 
 </div>
 
@@ -42,9 +42,13 @@ Desarrollada con **Python + Tkinter** · Diseño en **modo oscuro y claro** · P
 
 El desarrollo del proyecto se consolida en dos grandes hitos, cada uno orientado a una filosofía de uso distinta:
 
-### v3.0.7 (Versión Actual / Recomendada)
+### v3.1.0 (Versión Actual / Recomendada)
 *Representa la línea principal, depurada y definitiva del proyecto.*
 
+- **Buscador en tiempo real:** Filtra al instante la lista de animes desde el gestor de trackers (con diseño optimizado de alto contraste).
+- **Sistema de Favoritos (⭐):** Estrellas interactivas con color personalizable desde la configuración.
+- **Limpieza visual:** Interfaz del Gestor de Trackers completamente pulida (sin miniaturas acumuladas o layouts cortados).
+- **Robustez técnica (Logs):** Sistema de registro de errores silencioso (`try...except`) que guarda todo en `%APPDATA%\AnimeTracker\app.log`.
 - **Gestor de Trackers centralizado:** Capacidad para seguir, gestionar y alternar entre múltiples carpetas desde una única interfaz global.
 - **Almacenamiento seguro en AppData:** Las configuraciones globales y el progreso se almacenan limpiamente en el perfil del usuario, garantizando persistencia portátil sin ensuciar los directorios de medios.
 - **Sincronización impecable de temas:** Cambio instantáneo entre modo claro y oscuro en tiempo real, con redibujado automático y preciso de las tarjetas y mosaicos de video.
@@ -60,12 +64,12 @@ El desarrollo del proyecto se consolida en dos grandes hitos, cada uno orientado
 
 ---
 
-## 🚀 Instrucciones de Uso (v3.0.7)
+## 🚀 Instrucciones de Uso (v3.1.0)
 
 ### Opción A — Ejecutable Portátil (Recomendado)
 
 1. Ve a **[Releases](../../releases)** en este repositorio.
-2. Descarga `AnimeTracker.exe` de la versión **v3.0.7**.
+2. Descarga `AnimeTracker.exe` de la versión **v3.1.0**.
 3. Ejecútalo en cualquier lugar de tu computadora. Desde la app, usa el **Gestor de Trackers** para añadir las carpetas donde guardas tus series o videos. **¡Listo!**
 
 ### Opción B — Ejecutar desde el Código Fuente

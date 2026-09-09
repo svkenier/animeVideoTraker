@@ -25,11 +25,27 @@ def self_unblock():
             if os.path.exists(zone_identifier_path):
                 os.remove(zone_identifier_path)
     except Exception:
+        import logging; logging.error("Captura silenciosa", exc_info=True)
         # Si no hay permisos o falla por cualquier motivo, se ignora de forma segura para no romper el inicio
         pass
 
 # Ejecutar esto en la primera línea ejecutable del script
 self_unblock()
+
+import logging
+import os
+
+appdata_dir = os.path.join(os.environ.get('APPDATA', os.path.expanduser('~')), 'AnimeTracker')
+os.makedirs(appdata_dir, exist_ok=True)
+log_path = os.path.join(appdata_dir, 'app.log')
+
+logging.basicConfig(
+    filename=log_path,
+    level=logging.DEBUG,
+    format='[%(asctime)s] [%(levelname)s] %(filename)s:%(lineno)d - %(message)s',
+    encoding='utf-8'
+)
+logging.info("--- Aplicación iniciada correctamente ---")
 
 try:
     import cv2  # type: ignore # noqa: F401
@@ -43,7 +59,7 @@ from tkinter import colorchooser, messagebox
 #  CONSTANTS
 # ---------------------------------------------------------------------------
 APP_TITLE = "Anime & Video Tracker"
-APP_VERSION = "3.0.7"
+APP_VERSION = "3.1.0"
 
 SYNC_INTERVAL_S = 0.5  # segundos entre chequeos del watcher de ventanas
 
@@ -247,6 +263,7 @@ def esta_archivo_en_uso(ruta):
         _k32.CloseHandle(h)
         return False
     except Exception:
+        import logging; logging.error("Captura silenciosa", exc_info=True)
         return False
 
 
@@ -286,6 +303,7 @@ def obtener_nombre_reproductor(archivo_nombre):
         cb_func = _EnumCB(_cb)
         _u32.EnumWindows(cb_func, 0)
     except Exception:
+        import logging; logging.error("Captura silenciosa", exc_info=True)
         pass
     return found[0] if found else "REPRODUCTOR"
 
@@ -370,6 +388,7 @@ def extract_thumb_bytes(filepath, tw=THUMB_W, th=THUMB_H):
         # 3. Retornar los bytes puros (Tkinter PhotoImage falla si se usa base64 para PPM)
         return ppm_bytes
     except Exception as e:
+        import logging; logging.error("Captura silenciosa", exc_info=True)
         log_dir = os.path.join(
             os.getenv("APPDATA", os.path.expanduser("~")), "AnimeTracker"
         )
@@ -414,6 +433,7 @@ class ThumbnailCache:
             try:
                 self._photos[filepath] = tk.PhotoImage(data=b64)
             except Exception:
+                import logging; logging.error("Captura silenciosa", exc_info=True)
                 self._raw[filepath] = False
                 return None
         return self._photos[filepath]
@@ -424,6 +444,7 @@ class ThumbnailCache:
         try:
             ctypes.windll.ole32.CoInitialize(None)
         except Exception:
+            import logging; logging.error("Captura silenciosa", exc_info=True)
             pass
         while True:
             try:
@@ -433,10 +454,12 @@ class ThumbnailCache:
                 try:
                     self._on_ready(path)
                 except Exception:
+                    import logging; logging.error("Captura silenciosa", exc_info=True)
                     pass
             except queue.Empty:
                 pass
             except Exception:
+                import logging; logging.error("Captura silenciosa", exc_info=True)
                 pass
 
     def clear(self):
@@ -504,7 +527,38 @@ class Settings:
         "colores_claro": {},  # custom colors for light theme
         "carpetas_seguidas": [],
         "carpeta_activa": "",
+        "favoritos": [],
+        "color_estrella": "#ffd700",
     }
+
+    @property
+    def favoritos(self):
+        return self.data.get("favoritos", [])
+
+    @property
+    def color_estrella(self):
+        return self.data.get("color_estrella", "#ffd700")
+
+    def toggle_favorito(self, ruta):
+        try:
+            favs = self.favoritos
+            if ruta in favs:
+                favs.remove(ruta)
+            else:
+                favs.append(ruta)
+            self.data["favoritos"] = favs
+            self.save()
+        except Exception:
+            import logging; logging.error("Error toggling favorito", exc_info=True)
+            pass
+
+    def set_color_estrella(self, color):
+        try:
+            self.data["color_estrella"] = color
+            self.save()
+        except Exception:
+            import logging; logging.error("Error setting color estrella", exc_info=True)
+            pass
 
     @property
     def carpetas_seguidas(self):
@@ -535,6 +589,7 @@ class Settings:
                     os.fsync(f.fileno())
                 ctypes.windll.kernel32.SetFileAttributesW(str(tr_path), 0x02)
             except Exception:
+                import logging; logging.error("Captura silenciosa", exc_info=True)
                 pass
 
     def set_carpeta_activa(self, ruta):
@@ -559,6 +614,7 @@ class Settings:
             if os.path.isfile(tr_path):
                 os.remove(tr_path)
         except Exception:
+            import logging; logging.error("Captura silenciosa", exc_info=True)
             pass
 
     def __init__(self, directory):
@@ -587,6 +643,7 @@ class Settings:
                     d.pop("colores_personalizados", None)
                     self.data.update(d)
             except Exception:
+                import logging; logging.error("Captura silenciosa", exc_info=True)
                 pass
         # Ensure per-theme dicts always exist
         self.data.setdefault("colores_oscuro", {})
@@ -611,6 +668,7 @@ class Settings:
 
                 return os.path.basename(p_abs) != "dist"
             except Exception:
+                import logging; logging.error("Captura silenciosa", exc_info=True)
                 return False
 
         valid_carpetas = [
@@ -629,6 +687,7 @@ class Settings:
             with open(self._path, "w", encoding="utf-8") as f:
                 json.dump(self.data, f, ensure_ascii=False, indent=2)
         except Exception as e:
+            import logging; logging.error("Captura silenciosa", exc_info=True)
             print(f"Error guardando settings: {e}")
 
     def apply_theme(self):
@@ -1095,6 +1154,7 @@ class CardView:
             try:
                 w.configure(bg=bg)
             except Exception:
+                import logging; logging.error("Captura silenciosa", exc_info=True)
                 pass
 
     def _scroll(self, ev):
@@ -1137,6 +1197,7 @@ class VentanaConfiguracion(tk.Toplevel):
                 if os.path.exists(logo_path):
                     self.iconbitmap(logo_path)
         except Exception:
+            import logging; logging.error("Captura silenciosa", exc_info=True)
             pass
 
         self.update_idletasks()
@@ -1277,6 +1338,35 @@ class VentanaConfiguracion(tk.Toplevel):
             bg=bg,
             fg=C["fg_sub"],
         ).grid(row=1, column=2, padx=6)
+        
+        # Section 4: Favoritos
+        self._sec(body, "4.  Favoritos")
+        sf = tk.Frame(body, bg=bg)
+        sf.pack(fill="x", padx=20, pady=6)
+        tk.Label(
+            sf, text="Color de estrella:", font=("Segoe UI", 9),
+            bg=bg, fg=C["fg_normal"], width=15, anchor="w"
+        ).pack(side="left")
+        
+        self.fav_color_var = tk.StringVar(value=self.app.settings.color_estrella)
+        color_btn = tk.Button(
+            sf, text="■ Elegir", font=("Segoe UI", 8, "bold"), bg=C["bg_btn"], fg=self.fav_color_var.get(),
+            relief="flat", cursor="hand2", width=10
+        )
+        color_btn.pack(side="left", padx=10)
+        
+        def _pick_fav_color():
+            try:
+                c = colorchooser.askcolor(initialcolor=self.fav_color_var.get(), title="Color de Estrella")[1]
+                if c:
+                    self.fav_color_var.set(c)
+                    color_btn.config(fg=c)
+            except Exception:
+                import logging; logging.error("Captura silenciosa", exc_info=True)
+                pass
+                
+        color_btn.config(command=_pick_fav_color)
+
         tk.Frame(body, bg=bg, height=20).pack()
 
         # Reset button inside scrollable area
@@ -1352,6 +1442,7 @@ class VentanaConfiguracion(tk.Toplevel):
             try:
                 sw.configure(bg=col)
             except Exception:
+                import logging; logging.error("Captura silenciosa", exc_info=True)
                 pass
 
     def _btn(self, parent, text, cmd, bg, fg):
@@ -1427,6 +1518,7 @@ class VentanaConfiguracion(tk.Toplevel):
                             bg=C["bg_btn"], fg=fg_normal, buttonbackground=C["bg_btn"]
                         )
                 except Exception:
+                    import logging; logging.error("Captura silenciosa", exc_info=True)
                     pass
                 for child in w.winfo_children():
                     _walk(child)
@@ -1444,12 +1536,17 @@ class VentanaConfiguracion(tk.Toplevel):
                     bg=C["bg_btn"], fg=fg_normal, activebackground=C["bg_btn_hover"]
                 )
         except Exception:
+            import logging; logging.error("Captura silenciosa", exc_info=True)
             pass
 
     def _save(self):
         self._st.tema = self._tema_v.get()
         self._st.fuente_familia = self._fuente_v.get()
         self._st.fuente_tamano = self._tamano_v.get()
+        try:
+            self._st.set_color_estrella(self.fav_color_var.get())
+        except Exception:
+            pass
         for t in ["oscuro", "claro"]:
             for k, v in self._pending[t].items():
                 self._st.data[f"colores_{t}"][k] = v
@@ -1820,6 +1917,7 @@ class WindowWatcher:
                 else:
                     self._last_match = None
             except Exception:
+                import logging; logging.error("Captura silenciosa", exc_info=True)
                 pass  # jamás dejar caer el hilo
             self._stop_evt.wait(SYNC_INTERVAL_S)
 
@@ -1849,6 +1947,7 @@ class WindowWatcher:
                                 found_title = title
                                 return False  # Stop searching
                 except Exception:
+                    import logging; logging.error("Captura silenciosa", exc_info=True)
                     pass
                 return True
 
@@ -1859,6 +1958,7 @@ class WindowWatcher:
             user32.EnumWindows(cb_func, 0)
             return found_title
         except Exception:
+            import logging; logging.error("Captura silenciosa", exc_info=True)
             return ""
 
     def _match_video(self, win_title: str) -> str:
@@ -1985,6 +2085,7 @@ def mostrar_banner_advertencia(root_window):
         )
         banner_antivirus.pack(side=tk.TOP, fill=tk.X, before=root_window.winfo_children()[0] if root_window.winfo_children() else None)
     except Exception:
+        import logging; logging.error("Captura silenciosa", exc_info=True)
         pass
 
 def limpiar_advertencia_antivirus():
@@ -1994,6 +2095,7 @@ def limpiar_advertencia_antivirus():
         try:
             banner_antivirus.destroy()
         except Exception:
+            import logging; logging.error("Captura silenciosa", exc_info=True)
             pass
         banner_antivirus = None
     antivirus_advertencia_mostrada = False
@@ -2090,8 +2192,13 @@ class VideoTrackerApp:
         self._refresh_videos()
         if self._empty_state_frame:
             self._empty_state_frame.pack_forget()
+
+        fm_abierto = hasattr(self, "_fm_frame") and self._fm_frame and self._fm_frame.winfo_exists()
         if hasattr(self, "_outer") and self._outer:
-            self._outer.pack(fill="both", expand=True)
+            if fm_abierto:
+                self._outer.pack_forget()
+            else:
+                self._outer.pack(fill="both", expand=True)
 
         # Reset views
         if self._card_view:
@@ -2119,6 +2226,7 @@ class VideoTrackerApp:
                 try:
                     self._empty_state_frame.place_forget()
                 except Exception:
+                    import logging; logging.error("Captura silenciosa", exc_info=True)
                     pass
             return
 
@@ -2177,6 +2285,7 @@ class VideoTrackerApp:
             if os.path.exists(icon_path):
                 self.root.iconbitmap(icon_path)
         except Exception:
+            import logging; logging.error("Captura silenciosa", exc_info=True)
             pass
         self.root.geometry("960x680")
         self.root.minsize(660, 480)
@@ -2217,6 +2326,7 @@ class VideoTrackerApp:
             try:
                 self._empty_state_frame.place_forget()
             except Exception:
+                import logging; logging.error("Captura silenciosa", exc_info=True)
                 pass
 
         self._fm_frame = tk.Frame(self.root, bg=C["bg_root"])
@@ -2270,31 +2380,67 @@ class VideoTrackerApp:
 
         btn_add.bind("<Button-1>", lambda e: add_new())
 
+        # Search bar
+        search_frame = tk.Frame(self._fm_frame, bg=C["bg_root"])
+        search_frame.pack(fill="x", padx=40, pady=(5, 0))
+        tk.Label(
+            search_frame, text="🔍 Buscar:", bg=C["bg_root"], fg=C["fg_title"], font=("Segoe UI", 10, "bold")
+        ).pack(side="left")
+        
+        self._folder_search_var = tk.StringVar()
+        search_entry = tk.Entry(
+            search_frame, textvariable=self._folder_search_var, bg="#2d2d2d", 
+            fg="#ffffff", insertbackground="#ffffff", bd=1, relief="solid", 
+            highlightthickness=1, highlightbackground=C["border"], 
+            highlightcolor=C["border_active"], font=("Segoe UI", 10)
+        )
+        search_entry.pack(side="left", fill="x", expand=True, padx=10)
+        
+        def _on_search(*args):
+            try:
+                self._draw_folder_list(self._folder_search_var.get())
+            except Exception:
+                import logging; logging.error("Error filtrando carpetas", exc_info=True)
+                pass
+
+        self._folder_search_var.trace_add("write", _on_search)
+
         # List frame
         self.folder_list_frame = tk.Frame(self._fm_frame, bg=C["bg_root"])
         self.folder_list_frame.pack(fill="both", expand=True, padx=40, pady=10)
         self._draw_folder_list()
 
-    def _draw_folder_list(self):
+    def _draw_folder_list(self, query=""):
         for w in self.folder_list_frame.winfo_children():
             w.destroy()
 
         carpetas = self.settings.carpetas_seguidas
         activa = self.settings.carpeta_activa
+        
+        # Filtro de búsqueda
+        if query:
+            carpetas = [c for c in carpetas if query.lower() in c.lower()]
 
         if not carpetas:
             tk.Label(
                 self.folder_list_frame,
-                text="No sigues ninguna carpeta aún.",
+                text="No hay carpetas para mostrar." if query else "No sigues ninguna carpeta aún.",
                 bg=C["bg_root"],
                 fg=C["fg_sub"],
                 font=("Segoe UI", 10),
             ).pack(pady=20)
         else:
+            # Ordenar primero favoritos
+            favs = self.settings.favoritos
+            carpetas.sort(key=lambda x: (x not in favs, x.lower()))
+            
             for c in carpetas:
                 is_active = c == activa
+                is_fav = c in favs
                 bg_row = C["bg_card_hover"] if is_active else C["bg_card"]
                 fg_row = C["fg_title"] if is_active else C["fg_normal"]
+                star_text = "★" if is_fav else "☆"
+                star_color = self.settings.color_estrella if is_fav else C["fg_sub"]
 
                 row = tk.Frame(
                     self.folder_list_frame,
@@ -2304,6 +2450,25 @@ class VideoTrackerApp:
                     cursor="hand2",
                 )
                 row.pack(fill="x", pady=2)
+
+                lbl_star = tk.Label(
+                    row,
+                    text=star_text,
+                    bg=bg_row,
+                    fg=star_color,
+                    font=("Segoe UI", 14),
+                    cursor="hand2",
+                )
+                lbl_star.pack(side="left", padx=(10, 0))
+
+                def _toggle_fav(e, ruta=c):
+                    try:
+                        self.settings.toggle_favorito(ruta)
+                        self._draw_folder_list(self._folder_search_var.get() if hasattr(self, '_folder_search_var') else "")
+                    except Exception:
+                        import logging; logging.error("Error toggle estrella UI", exc_info=True)
+
+                lbl_star.bind("<Button-1>", _toggle_fav)
 
                 lbl = tk.Label(
                     row,
@@ -2399,6 +2564,7 @@ class VideoTrackerApp:
             except PermissionError:
                 manejar_error_permisos(self.root)
             except Exception:
+                import logging; logging.error("Captura silenciosa", exc_info=True)
                 pass
 
             # 2. Remover del gestor de rutas
@@ -2811,6 +2977,7 @@ class VideoTrackerApp:
                     else f"  {b / (1024**2):.1f} MB"
                 )
             except Exception:
+                import logging; logging.error("Captura silenciosa", exc_info=True)
                 pass
             return f"{ruta}{size}"
         return ""
@@ -2906,6 +3073,7 @@ class VideoTrackerApp:
         except PermissionError:
             manejar_error_permisos(self.root)
         except Exception:
+            import logging; logging.error("Captura silenciosa", exc_info=True)
             pass
         return ""
 
@@ -2931,6 +3099,7 @@ class VideoTrackerApp:
                     str(ruta), FILE_ATTRIBUTE_NORMAL
                 )
             except Exception:
+                import logging; logging.error("Captura silenciosa", exc_info=True)
                 pass
 
             # Paso 2: leer datos existentes
@@ -2940,6 +3109,7 @@ class VideoTrackerApp:
                     with open(ruta, "r", encoding="utf-8") as f:
                         data = json.load(f)
                 except Exception:
+                    import logging; logging.error("Captura silenciosa", exc_info=True)
                     data = {}
             data["ultimo_visto"] = name
 
@@ -2955,6 +3125,7 @@ class VideoTrackerApp:
         except PermissionError:
             manejar_error_permisos(self.root)
         except Exception:
+            import logging; logging.error("Captura silenciosa", exc_info=True)
             pass
 
     # ── Render ────────────────────────────────────────────────────────────────
@@ -2966,6 +3137,7 @@ class VideoTrackerApp:
                     self._empty_state_frame.place_forget()
                     self._empty_state_frame.pack_forget()
             except Exception:
+                import logging; logging.error("Captura silenciosa", exc_info=True)
                 pass
 
         if self._vista_actual == "tarjetas":
@@ -3058,6 +3230,7 @@ class VideoTrackerApp:
                 self._save_progress(activo)
                 self._update_ui()
         except Exception:
+            import logging; logging.error("Captura silenciosa", exc_info=True)
             pass
         self.root.after(self.POLL_MS, self._monitor)
 
@@ -3120,6 +3293,7 @@ class VideoTrackerApp:
             if hasattr(self, "_watcher"):
                 self._watcher.stop()
         except Exception:
+            import logging; logging.error("Captura silenciosa", exc_info=True)
             pass
 
         # Destruir la ventana
@@ -3136,6 +3310,7 @@ class VideoTrackerApp:
         try:
             os.startfile(ruta)
         except Exception as exc:
+            import logging; logging.error("Captura silenciosa", exc_info=True)
             messagebox.showerror(
                 "Error al abrir",
                 f"No se pudo abrir:\n{ruta}\n\n{exc}",
@@ -3152,6 +3327,7 @@ class VideoTrackerApp:
         try:
             os.startfile(self.directorio)
         except Exception:
+            import logging; logging.error("Captura silenciosa", exc_info=True)
             pass
 
     def _on_global_click(self, event):
@@ -3280,6 +3456,7 @@ class VideoTrackerApp:
             try:
                 b.configure(bg=C["bg_btn"], fg=C["fg_btn"])
             except Exception:
+                import logging; logging.error("Captura silenciosa", exc_info=True)
                 pass
 
         # List
@@ -3318,6 +3495,7 @@ class VideoTrackerApp:
                 if current != C["border_active"]:  # don\'t repaint active btn
                     w.configure(bg=C["bg_btn"], fg=C["fg_btn"])
         except Exception:
+            import logging; logging.error("Captura silenciosa", exc_info=True)
             pass
 
         # Rebuild empty state frame with new theme colors if visible

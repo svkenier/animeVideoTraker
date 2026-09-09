@@ -39,9 +39,21 @@ IF EXIST "dist\%EXE_NAME%.exe" (
     echo  [OK] Compilacion exitosa!
     echo  [>>] Ejecutable: dist\%EXE_NAME%.exe
     echo.
-    echo  INSTRUCCIONES PORTABLE:
-    echo  Copia AnimeTracker.exe a cualquier carpeta con videos y ejecutalo.
-    echo  Los archivos .tracker.json y tracker_settings.json se crean ahi mismo.
+    echo  ======================================================
+    echo  ANIME TRACKER v3.1.0 COMPILADO CON EXITO
+    echo  ======================================================
+    echo.
+    echo  NOVEDADES DE LA VERSION 3.1.0:
+    echo  - Gestor de Trackers integrado para multiples carpetas.
+    echo  - Buscador en tiempo real para filtrar series instantaneamente.
+    echo  - Favoritos con estrellas personalizables desde configuracion.
+    echo.
+    echo  INSTRUCCIONES DE USO:
+    echo  1. Ejecuta dist\%EXE_NAME%.exe desde cualquier lugar (es portable y autodesbloqueable).
+    echo  2. Presiona "Trackers" para abrir el gestor.
+    echo  3. Usa el boton "+ Anadir carpeta a traquear" para importar tus series.
+    echo  4. Todos tus datos y logs ahora se resguardan de forma segura en %%APPDATA%%.
+    echo  ======================================================
 ) else (
     goto :error
 )
